@@ -45,6 +45,24 @@ button{font:inherit;font-weight:600;border:0;border-radius:999px;padding:0 18px;
 .send{width:100%;height:48px;background:transparent;border:1.5px solid var(--r2);color:var(--r2);margin:0 0 6px}
 .send:disabled{opacity:.5;cursor:default}
 #sendmsg{margin:4px 0 12px;font-size:13px;font-weight:600;color:var(--r2)}
+.modal{position:fixed;top:0;right:0;bottom:0;left:0;z-index:50;display:grid;place-items:center;padding:20px;background:rgba(40,0,6,.5)}
+.mbox{width:100%;max-width:380px;background:var(--bg1);-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:0 20px 50px rgba(0,0,0,.35)}
+.mbox h2{font-size:17px;margin:0 0 4px}
+.opts{display:flex;gap:10px;margin:14px 0}
+.opt{flex:1;margin:0;position:relative}
+.opt input{position:absolute;opacity:0;width:1px;height:1px}
+.opt span{display:block;text-align:center;padding:14px 8px;border-radius:16px;border:1.5px solid var(--line);background:var(--inp);font-weight:700;cursor:pointer}
+.opt input:checked+span{border-color:var(--r2);color:#fff;background:linear-gradient(90deg,var(--r1),var(--r2))}
+.opt input:focus-visible+span{outline:2px solid var(--r2);outline-offset:2px}
+.warnbox{background:var(--warnbg);color:var(--warn);padding:10px 12px;border-radius:14px;font-size:13px;font-weight:600;margin:0 0 10px}
+.chk{display:flex;gap:10px;align-items:center;font-size:14px;margin:0 0 14px;cursor:pointer}
+.chk input{width:22px;height:22px;flex:none;accent-color:var(--r2);padding:0;box-shadow:none}
+.qty{display:flex;gap:10px;align-items:center;margin-bottom:16px}
+.qty button{flex:none;width:48px;height:48px;padding:0;font-size:24px;line-height:1;border-radius:16px;background:var(--inp);border:1px solid var(--line);color:var(--ink);box-shadow:0 4px 12px var(--sh)}
+.qty input{margin:0;text-align:center;font-weight:700;font-size:18px}
+.mbtns{display:flex;gap:10px;margin-top:6px}
+.mbtns .del,.mbtns .print{flex:1;height:48px;margin:0;font-size:15px}
+.mbtns .del{border-radius:999px}
 .print:disabled{opacity:.5;cursor:default}
 .prev img{max-width:100%;max-height:78vh;border-radius:12px;border:1px solid var(--line);box-shadow:0 8px 24px var(--sh);background:#fff}
 .hint{color:var(--mute);font-size:12px;margin:12px 0 0}
@@ -84,6 +102,7 @@ button{font:inherit;font-weight:600;border:0;border-radius:999px;padding:0 18px;
 })();
 </script>
 <div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div>
+<div class="modal" id="paperModal" hidden><div class="card mbox" role="dialog" aria-modal="true" aria-labelledby="pmTitle"><h2 id="pmTitle">Kirim ke PC cetak</h2><div id="paperBox"><p class="sub" style="margin:0">Pilih ukuran kertas. POP diperbesar mengikuti kertas.</p><div class="opts"><label class="opt"><input type="radio" name="kertas" value="a4" checked><span>A4</span></label><label class="opt"><input type="radio" name="kertas" value="a3"><span>A3</span></label></div><div class="warnbox" id="a3warn" hidden>⚠ Pastikan kertas di printer sudah diganti dengan kertas A3 sebelum mengirim.</div><label class="chk" id="a3conf" hidden><input type="checkbox" id="a3ok"><span>Ya, kertas A3 sudah terpasang di printer</span></label></div><label for="qty" style="margin:14px 0 6px">Jumlah lembar</label><div class="qty"><button type="button" id="qm" aria-label="Kurangi">−</button><input id="qty" type="number" min="1" max="50" value="1" inputmode="numeric"><button type="button" id="qp" aria-label="Tambah">+</button></div><div class="mbtns"><button class="del" id="paperCancel" type="button">Batal</button><button class="print" id="paperSend" type="button">Kirim</button></div></div></div>
 <div class="wrap">
 <header class="bar">
   <div class="brand"><div class="logo">MDS</div><div><h1>Form POP MDS</h1><p class="sub">Isi data, POP langsung tersusun sesuai panduan MDS Collateral 2026.</p></div></div>
@@ -750,17 +769,45 @@ $('print').onclick=function(){
       }).catch(function(){track(id,n+1)});
     },4000);
   }
+  function isA3(){return !$('paperBox').hidden&&document.querySelector('input[name=kertas]:checked').value==='a3'}
+  function paperUI(){
+    var a3=isA3();
+    $('a3warn').hidden=!a3;$('a3conf').hidden=!a3;
+    $('paperSend').disabled=a3&&!$('a3ok').checked;
+  }
+  function qtyVal(){var n=parseInt($('qty').value,10);return Math.max(1,Math.min(50,isNaN(n)?1:n))}
+  function doSend(pw,ph,label,copies){
+    busy=true;$('send').disabled=true;say('Mengirim…');
+    post({action:'enqueue',token:tok(),label:label,w:pw,h:ph,copies:copies,img:$('img').src}).then(function(r){
+      if(!r.ok){say(r.error==='sesi'?'Sesi habis. Masuk lagi.':'Gagal mengirim ('+(r.error||'error')+').');$('send').disabled=false;busy=false;return}
+      say('Terkirim ('+copies+' lembar). Antrian ke-'+r.posisi+'.');track(r.id,0);
+    }).catch(function(){say('Tidak bisa terhubung. Coba lagi.');$('send').disabled=false;busy=false});
+  }
+  var pend=null;
   $('send').onclick=function(){
     if(busy)return;
     var im=$('img');if(!im.src||!im.naturalWidth)return;
     var r=im.naturalWidth/im.naturalHeight,pw=210,ph=297;
     if(Math.abs(r-1)<.02){pw=120;ph=120}else if(r>1.5){pw=630;ph=297}
     var t=$('tipe'),label=t.options[t.selectedIndex].text.replace(/\s*\(.*$/,'')+' '+$('ukuran').value.toUpperCase();
-    busy=true;$('send').disabled=true;say('Mengirim…');
-    post({action:'enqueue',token:tok(),label:label,w:pw,h:ph,img:im.src}).then(function(r){
-      if(!r.ok){say(r.error==='sesi'?'Sesi habis. Masuk lagi.':'Gagal mengirim ('+(r.error||'error')+').');$('send').disabled=false;busy=false;return}
-      say('Terkirim. Antrian ke-'+r.posisi+'.');track(r.id,0);
-    }).catch(function(){say('Tidak bisa terhubung. Coba lagi.');$('send').disabled=false;busy=false});
+    pend={label:label,pw:pw,ph:ph};
+    $('paperBox').hidden=!(pw===210&&ph===297);
+    document.querySelector('input[name=kertas][value=a4]').checked=true;$('a3ok').checked=false;$('qty').value=1;paperUI();
+    $('paperModal').hidden=false;
+  };
+  Array.prototype.forEach.call(document.querySelectorAll('input[name=kertas]'),function(e){e.onchange=paperUI});
+  $('a3ok').onchange=paperUI;
+  $('qm').onclick=function(){$('qty').value=Math.max(1,qtyVal()-1)};
+  $('qp').onclick=function(){$('qty').value=Math.min(50,qtyVal()+1)};
+  $('qty').onchange=function(){$('qty').value=qtyVal()};
+  $('paperCancel').onclick=function(){$('paperModal').hidden=true};
+  $('paperModal').onclick=function(e){if(e.target===this)$('paperModal').hidden=true};
+  $('paperSend').onclick=function(){
+    var a3=isA3();
+    if(a3&&!$('a3ok').checked)return;
+    var n=qtyVal();
+    $('paperModal').hidden=true;
+    doSend(a3?297:pend.pw,a3?420:pend.ph,pend.label+(a3?' → kertas A3':''),n);
   };
 })();
 /* ==== TEMA / KELUAR ==== */

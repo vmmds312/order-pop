@@ -95,23 +95,30 @@ function setSt(cls,t,t2){$('dot').className='dot '+cls;$('st').textContent=t;$('
 function hhmm(){var d=new Date();return ('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2)}
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
 function addLog(job,st){
-  logs.unshift({t:hhmm(),l:job.label,u:job.user,s:st});logs=logs.slice(0,8);if(st==='selesai')count++;
+  logs.unshift({t:hhmm(),l:job.label+((job.copies||1)>1?' ×'+job.copies:''),u:job.user,s:st});logs=logs.slice(0,8);if(st==='selesai')count++;
   $('empty').hidden=true;$('cnt').textContent='('+count+' selesai)';
   $('log').innerHTML=logs.map(function(x){return '<li class="'+(x.s==='gagal'?'gagal':'')+'"><span>'+x.t+' · '+esc(x.l)+' · '+esc(x.u)+'</span><span>'+x.s+'</span></li>'}).join('');
 }
 function printJob(job){
   return new Promise(function(res,rej){
-    var w=job.w,h=job.h,f=document.createElement('iframe');
+    var w=job.w,h=job.h,n=Math.max(1,Math.min(50,job.copies||1)),f=document.createElement('iframe');
     f.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0';document.body.appendChild(f);
     var d=f.contentWindow.document;d.open();
-    d.write('<!doctype html><html><head><meta charset="utf-8"><title>POP</title><style>@page{size:'+w+'mm '+h+'mm;margin:0}html,body{margin:0;padding:0;background:#fff}img{display:block;width:'+w+'mm;height:'+h+'mm}</style></head><body><img id="p" alt=""></body></html>');d.close();
-    var im=d.getElementById('p');
-    im.onerror=function(){f.remove();rej(new Error('gambar'))};
-    im.onload=function(){
+    d.write('<!doctype html><html><head><meta charset="utf-8"><title>POP</title><style>@page{size:'+w+'mm '+h+'mm;margin:0}html,body{margin:0;padding:0;background:#fff}img{display:block;width:'+w+'mm;height:'+h+'mm;break-after:page;page-break-after:always}img:last-child{break-after:auto;page-break-after:auto}</style></head><body></body></html>');d.close();
+    var loaded=0,failed=false;
+    function ready(){
+      if(failed)return;
+      if(++loaded<n)return;
       try{f.contentWindow.focus();f.contentWindow.print()}catch(e){f.remove();rej(e);return}
-      setTimeout(function(){f.remove();res()},3000);
-    };
-    im.src=job.img;
+      setTimeout(function(){f.remove();res()},Math.min(3000+n*600,30000));
+    }
+    for(var k=0;k<n;k++){
+      var im=d.createElement('img');
+      im.onerror=function(){if(!failed){failed=true;f.remove();rej(new Error('gambar'))}};
+      im.onload=ready;
+      im.src=job.img;
+      d.body.appendChild(im);
+    }
   });
 }
 function next(ms){clearTimeout(timer);if(stopped)return;timer=setTimeout(tick,ms||POLL_MS)}
@@ -130,7 +137,7 @@ function tick(){
       setSt('err','Server menolak ('+(r.error||'?')+')','Mencoba lagi…');next();return;
     }
     if(!r.job){busy=false;idle();next();return}
-    var job=r.job;setSt('busy','Mencetak: '+job.label,'Dari '+job.user);
+    var job=r.job,kertas=(job.w===297&&job.h===420)?'A3':(job.w===210&&job.h===297)?'A4':job.w+' x '+job.h+' mm';setSt('busy','Mencetak: '+job.label,'Dari '+job.user+' · kertas '+kertas+' · '+(job.copies||1)+' lembar');
     return printJob(job).then(function(){return post({action:'done',key:key(),id:job.id,status:'selesai'})}).then(function(){addLog(job,'selesai')})
       .catch(function(){return post({action:'done',key:key(),id:job.id,status:'gagal'}).catch(function(){}).then(function(){addLog(job,'gagal')})})
       .then(function(){busy=false;idle();next(1500)});
