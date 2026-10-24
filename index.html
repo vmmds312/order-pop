@@ -41,7 +41,10 @@ button{font:inherit;font-weight:600;border:0;border-radius:999px;padding:0 18px;
 .msgs li{padding:9px 12px;border-radius:14px;font-size:13px}
 .msgs .e{background:var(--errbg);color:var(--err)}.msgs .w{background:var(--warnbg);color:var(--warn)}.msgs .o{background:var(--okbg);color:var(--ok)}
 .prev{text-align:center}
-.print{width:100%;height:52px;font-size:16px;color:#fff;background:linear-gradient(90deg,var(--r1),var(--r2));box-shadow:0 10px 26px rgba(179,0,27,.38);margin:0 0 14px}
+.print{width:100%;height:52px;font-size:16px;color:#fff;background:linear-gradient(90deg,var(--r1),var(--r2));box-shadow:0 10px 26px rgba(179,0,27,.38);margin:0 0 10px}
+.send{width:100%;height:48px;background:transparent;border:1.5px solid var(--r2);color:var(--r2);margin:0 0 6px}
+.send:disabled{opacity:.5;cursor:default}
+#sendmsg{margin:4px 0 12px;font-size:13px;font-weight:600;color:var(--r2)}
 .print:disabled{opacity:.5;cursor:default}
 .prev img{max-width:100%;max-height:78vh;border-radius:12px;border:1px solid var(--line);box-shadow:0 8px 24px var(--sh);background:#fff}
 .hint{color:var(--mute);font-size:12px;margin:12px 0 0}
@@ -50,10 +53,11 @@ button{font:inherit;font-weight:600;border:0;border-radius:999px;padding:0 18px;
 <style id="lockcss">body{visibility:hidden}</style>
 </head>
 <body>
+<script src="config.js"></script>
 <script>
 /* ==== GERBANG LOGIN (jangan dihapus saat revisi) ==== */
 (function(){
-  var API="https://script.google.com/macros/s/AKfycbyBUi8HxG_wkn6MQirdW-dR-a4lIPDnb5FsbVM94ekQhQ3upP13TE9g71Wtl7kdlNnV/exec"; /* URL Web App yang sama dengan di login.html (berakhiran /exec) */
+  var API=window.MDS_API||""; /* diisi di config.js */
   var LOGIN="login.html";
   var g=document.createElement("div");
   g.style.cssText="position:fixed;top:0;right:0;bottom:0;left:0;display:flex;flex-direction:column;gap:12px;align-items:center;justify-content:center;background:#fff1f2;color:#2a0a0e;font:16px system-ui,sans-serif;z-index:9999;text-align:center;padding:24px";
@@ -65,7 +69,7 @@ button{font:inherit;font-weight:600;border:0;border-radius:999px;padding:0 18px;
   }
   var token=sessionStorage.getItem("mds_token")||localStorage.getItem("mds_token");
   if(!token){toLogin();return}
-  if(API.indexOf("GANTI")===0){g.textContent="URL Apps Script belum diisi di file ini.";return}
+  if(!API||API.indexOf("GANTI")===0){g.textContent="URL Apps Script belum diisi di config.js.";return}
   fetch(API,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({action:"verify",token:token})})
     .then(function(r){return r.json()})
     .then(function(r){
@@ -161,6 +165,8 @@ button{font:inherit;font-weight:600;border:0;border-radius:999px;padding:0 18px;
 <section class="card prev">
   <canvas id="cv" hidden></canvas>
   <button class="print" id="print" type="button">Cetak</button>
+  <button class="send" id="send" type="button">Kirim ke PC cetak</button>
+  <p id="sendmsg" hidden></p>
   <img id="img" alt="Preview POP">
   <p class="hint">Untuk menyimpan: klik kanan gambar lalu Save image, atau tekan lama di HP. Tombol Cetak memakai ukuran kertas sesuai POP (A5 dicetak 2x di satu lembar A4).</p>
 </section>
@@ -727,6 +733,36 @@ $('print').onclick=function(){
   pi.onload=function(){var w=f.contentWindow;w.onafterprint=done;w.focus();w.print();setTimeout(done,120000)};
   pi.src=im.src;
 };
+/* ==== KIRIM KE PC CETAK (antrian) ==== */
+(function(){
+  var API=window.MDS_API||'',busy=false;
+  function tok(){return sessionStorage.getItem('mds_token')||localStorage.getItem('mds_token')}
+  function post(b){return fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(b)}).then(function(r){return r.json()})}
+  function say(t){var m=$('sendmsg');m.textContent=t;m.hidden=!t}
+  function track(id,n){
+    if(n>45){say('Belum ada kabar dari PC. Pastikan Stasiun Cetak menyala dan terbuka.');$('send').disabled=false;busy=false;return}
+    setTimeout(function(){
+      post({action:'cek',token:tok(),id:id}).then(function(r){
+        if(!r.ok){say('Terkirim, tapi status tidak bisa dicek.');$('send').disabled=false;busy=false;return}
+        if(r.status==='selesai'){say('Selesai dicetak ✓');$('send').disabled=false;busy=false}
+        else if(r.status==='gagal'){say('Gagal dicetak. Cek PC cetak.');$('send').disabled=false;busy=false}
+        else{say(r.status==='mencetak'?'Sedang dicetak di PC…':'Terkirim. Menunggu PC cetak…');track(id,n+1)}
+      }).catch(function(){track(id,n+1)});
+    },4000);
+  }
+  $('send').onclick=function(){
+    if(busy)return;
+    var im=$('img');if(!im.src||!im.naturalWidth)return;
+    var r=im.naturalWidth/im.naturalHeight,pw=210,ph=297;
+    if(Math.abs(r-1)<.02){pw=120;ph=120}else if(r>1.5){pw=630;ph=297}
+    var t=$('tipe'),label=t.options[t.selectedIndex].text.replace(/\s*\(.*$/,'')+' '+$('ukuran').value.toUpperCase();
+    busy=true;$('send').disabled=true;say('Mengirim…');
+    post({action:'enqueue',token:tok(),label:label,w:pw,h:ph,img:im.src}).then(function(r){
+      if(!r.ok){say(r.error==='sesi'?'Sesi habis. Masuk lagi.':'Gagal mengirim ('+(r.error||'error')+').');$('send').disabled=false;busy=false;return}
+      say('Terkirim. Antrian ke-'+r.posisi+'.');track(r.id,0);
+    }).catch(function(){say('Tidak bisa terhubung. Coba lagi.');$('send').disabled=false;busy=false});
+  };
+})();
 /* ==== TEMA / KELUAR ==== */
 (function(){
   var th=$('theme'),d=document.documentElement;
