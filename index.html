@@ -743,7 +743,7 @@ $('print').onclick=function(){
     if(n>45){say('Belum ada kabar dari PC. Pastikan Stasiun Cetak menyala dan terbuka.');$('send').disabled=false;busy=false;return}
     setTimeout(function(){
       post({action:'cek',token:tok(),id:id}).then(function(r){
-        if(!r.ok){say('Terkirim, tapi status tidak bisa dicek.');$('send').disabled=false;busy=false;return}
+        if(!r.ok){say('Terkirim, tapi status tidak bisa dicek ('+(r&&r.error?r.error:'?')+').');$('send').disabled=false;busy=false;return}
         if(r.status==='selesai'){say('Selesai dicetak ✓');$('send').disabled=false;busy=false}
         else if(r.status==='gagal'){say('Gagal dicetak. Cek PC cetak.');$('send').disabled=false;busy=false}
         else{say(r.status==='mencetak'?'Sedang dicetak di PC…':'Terkirim. Menunggu PC cetak…');track(id,n+1)}
