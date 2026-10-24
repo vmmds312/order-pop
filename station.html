@@ -41,48 +41,28 @@ h2{font-size:15px;margin:0 0 10px}
 .empty{color:var(--mute);font-size:13px}
 details summary{cursor:pointer;font-weight:600}
 details ol{margin:10px 0 0;padding-left:20px;font-size:13px;display:grid;gap:8px}
+input{width:100%;font:inherit;color:var(--ink);padding:0 14px;height:48px;border:1px solid var(--line);border-radius:16px;background:var(--inp);box-shadow:0 4px 12px var(--sh);margin:10px 0}
+.go{width:100%;height:50px;color:#fff;background:linear-gradient(90deg,var(--r1),var(--r2));border:0;border-radius:999px;box-shadow:0 10px 26px rgba(179,0,27,.38)}
 code{font-family:Consolas,monospace;font-size:12px;background:var(--inp);padding:2px 6px;border-radius:6px;word-break:break-all}
 </style>
 <script>if(matchMedia("(prefers-color-scheme: dark)").matches)document.documentElement.setAttribute("data-theme","dark")</script>
-<style id="lockcss">body{visibility:hidden}</style>
 </head>
 <body>
 <script src="config.js"></script>
-<script>
-/* ==== GERBANG LOGIN: hanya akun role admin / superadmin ==== */
-(function(){
-  var API=window.MDS_API||"";
-  var g=document.createElement("div");
-  g.style.cssText="position:fixed;top:0;right:0;bottom:0;left:0;display:flex;flex-direction:column;gap:12px;align-items:center;justify-content:center;background:#fff1f2;color:#2a0a0e;font:16px system-ui,sans-serif;z-index:9999;text-align:center;padding:24px";
-  g.textContent="Memeriksa akses…";
-  document.documentElement.appendChild(g);
-  function toLogin(){
-    sessionStorage.removeItem("mds_token");localStorage.removeItem("mds_token");sessionStorage.removeItem("mds_user");
-    location.replace("login.html");
-  }
-  var token=sessionStorage.getItem("mds_token")||localStorage.getItem("mds_token");
-  if(!token){toLogin();return}
-  if(!API||API.indexOf("GANTI")===0){g.textContent="URL Apps Script belum diisi di config.js.";return}
-  fetch(API,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({action:"verify",token:token})})
-    .then(function(r){return r.json()})
-    .then(function(r){
-      if(!(r&&r.ok)){toLogin();return}
-      var role=String(r.role||"").toLowerCase();
-      if(role!=="admin"&&role!=="superadmin"){g.innerHTML="Akun ini tidak punya izin untuk Stasiun Cetak.<br>Pakai akun dengan role <b>admin</b>.<br><br><button style=\"font:inherit;padding:10px 18px\" onclick=\"toLoginX()\">Ganti akun</button>";window.toLoginX=toLogin;return}
-      sessionStorage.setItem("mds_token",token);sessionStorage.setItem("mds_user",r.username||"");
-      g.remove();document.getElementById("lockcss").remove();
-    })
-    .catch(function(){
-      g.innerHTML="Tidak bisa terhubung.<br><br><button style=\"font:inherit;padding:10px 18px\" onclick=\"location.reload()\">Coba lagi</button>";
-    });
-})();
-</script>
 <div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div>
 <div class="wrap">
   <header class="bar">
     <div class="brand"><div class="logo">MDS</div><div><h1>Stasiun Cetak</h1><p class="sub">Biarkan halaman ini terbuka di PC yang tersambung ke printer.</p></div></div>
-    <div class="tools"><button id="theme" type="button" aria-label="Ganti tema">☾</button><button id="logout" type="button">Keluar</button></div>
+    <div class="tools"><button id="theme" type="button" aria-label="Ganti tema">☾</button><button id="logout" type="button">Ganti kunci</button></div>
   </header>
+  <section class="card" id="keyCard" hidden>
+    <h2>Masukkan kunci stasiun</h2>
+    <p class="mini">Kunci ini sama dengan STASIUN_KEY di Apps Script (file Antrian). Cukup dimasukkan sekali di PC ini.</p>
+    <input id="key" type="password" autocomplete="off" placeholder="Kunci stasiun">
+    <button id="keyOk" class="go" type="button">Simpan dan mulai</button>
+    <p class="mini" id="keyMsg" style="margin-top:10px"></p>
+  </section>
+  <div id="main" hidden style="display:grid;gap:18px">
   <section class="card">
     <div class="stat"><div class="dot" id="dot"></div><div><div class="big" id="st">Menyiapkan…</div><div class="mini" id="st2"></div></div></div>
     <label class="sw"><span>Cetak otomatis</span><input type="checkbox" id="auto" checked></label>
@@ -98,26 +78,27 @@ code{font-family:Consolas,monospace;font-size:12px;background:var(--inp);padding
       <ol>
         <li>Atur printer yang dipakai sebagai <b>printer default</b> di Windows (Settings &gt; Bluetooth &amp; devices &gt; Printers &amp; scanners).</li>
         <li>Buat shortcut Edge untuk halaman ini: klik kanan Desktop &gt; New &gt; Shortcut, lalu isi <code>"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" --kiosk-printing https://vmmds312.github.io/order-pop/station.html</code></li>
-        <li>Buka halaman ini <b>lewat shortcut itu</b>. Cetakan akan langsung keluar tanpa dialog.</li>
+        <li>Buka halaman ini <b>lewat shortcut itu</b>. Cetakan akan langsung keluar tanpa dialog. Kunci stasiun hanya diminta sekali.</li>
         <li>Jangan minimize jendelanya, dan atur Windows supaya tidak tidur saat dicolokkan ke listrik (Settings &gt; System &gt; Power).</li>
       </ol>
     </details>
   </section>
+  </div>
 </div>
 <script>
 var $=function(i){return document.getElementById(i)};
-var API=window.MDS_API,POLL_MS=8000;
-var busy=false,count=0,timer=null,logs=[];
-function tok(){return sessionStorage.getItem('mds_token')||localStorage.getItem('mds_token')}
+var API=window.MDS_API||'',POLL_MS=5000,KEYK='mds_station_key';
+var busy=false,count=0,timer=null,logs=[],stopped=true;
+function key(){return localStorage.getItem(KEYK)||''}
 function post(b){return fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(b)}).then(function(r){return r.json()})}
 function setSt(cls,t,t2){$('dot').className='dot '+cls;$('st').textContent=t;$('st2').textContent=t2||''}
 function hhmm(){var d=new Date();return ('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2)}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
 function addLog(job,st){
   logs.unshift({t:hhmm(),l:job.label,u:job.user,s:st});logs=logs.slice(0,8);if(st==='selesai')count++;
   $('empty').hidden=true;$('cnt').textContent='('+count+' selesai)';
   $('log').innerHTML=logs.map(function(x){return '<li class="'+(x.s==='gagal'?'gagal':'')+'"><span>'+x.t+' · '+esc(x.l)+' · '+esc(x.u)+'</span><span>'+x.s+'</span></li>'}).join('');
 }
-function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
 function printJob(job){
   return new Promise(function(res,rej){
     var w=job.w,h=job.h,f=document.createElement('iframe');
@@ -133,30 +114,40 @@ function printJob(job){
     im.src=job.img;
   });
 }
-function next(ms){clearTimeout(timer);timer=setTimeout(tick,ms||POLL_MS)}
+function next(ms){clearTimeout(timer);if(stopped)return;timer=setTimeout(tick,ms||POLL_MS)}
 function idle(){setSt('ok','Siap menerima cetakan','Memeriksa antrian tiap '+(POLL_MS/1000)+' detik')}
+function showKey(msg){stopped=true;clearTimeout(timer);$('main').hidden=true;$('keyCard').hidden=false;$('keyMsg').textContent=msg||'';$('key').value=''}
+function showMain(){$('keyCard').hidden=true;$('main').hidden=false;stopped=false;idle();next(500)}
 function tick(){
+  if(stopped)return;
   if(!$('auto').checked){setSt('','Cetak otomatis dimatikan','Nyalakan lagi untuk melanjutkan');next();return}
   if(busy){next();return}
   busy=true;
-  post({action:'poll',token:tok()}).then(function(r){
+  post({action:'poll',key:key()}).then(function(r){
     if(!r.ok){
       busy=false;
-      if(r.error==='sesi'){setSt('err','Sesi habis','Klik Keluar lalu masuk lagi.');return}
-      setSt('err','Akun tidak punya izin','Pakai akun dengan role admin.');return;
+      if(r.error==='kunci'||r.error==='sesi'){showKey('Kunci salah atau sudah diganti. Masukkan lagi.');return}
+      setSt('err','Server menolak ('+(r.error||'?')+')','Mencoba lagi…');next();return;
     }
     if(!r.job){busy=false;idle();next();return}
     var job=r.job;setSt('busy','Mencetak: '+job.label,'Dari '+job.user);
-    return printJob(job).then(function(){return post({action:'done',token:tok(),id:job.id,status:'selesai'})}).then(function(){addLog(job,'selesai')})
-      .catch(function(){return post({action:'done',token:tok(),id:job.id,status:'gagal'}).catch(function(){}).then(function(){addLog(job,'gagal')})})
+    return printJob(job).then(function(){return post({action:'done',key:key(),id:job.id,status:'selesai'})}).then(function(){addLog(job,'selesai')})
+      .catch(function(){return post({action:'done',key:key(),id:job.id,status:'gagal'}).catch(function(){}).then(function(){addLog(job,'gagal')})})
       .then(function(){busy=false;idle();next(1500)});
   }).catch(function(){busy=false;setSt('err','Tidak bisa terhubung','Mencoba lagi…');next()});
 }
 $('auto').onchange=function(){if($('auto').checked)next(300)};
-$('logout').onclick=function(){
-  ['mds_token','mds_fp_token'].forEach(function(k){sessionStorage.removeItem(k);localStorage.removeItem(k)});
-  sessionStorage.removeItem('mds_user');location.replace('login.html');
+$('keyOk').onclick=function(){
+  var k=$('key').value.trim();
+  if(k.length<8){$('keyMsg').textContent='Kunci minimal 8 karakter.';return}
+  $('keyMsg').textContent='Memeriksa…';
+  post({action:'ping',key:k}).then(function(r){
+    if(r.ok){localStorage.setItem(KEYK,k);showMain()}
+    else $('keyMsg').textContent='Kunci tidak cocok. Samakan dengan STASIUN_KEY di Apps Script (file Antrian) lalu deploy versi baru.';
+  }).catch(function(){$('keyMsg').textContent='Tidak bisa terhubung. Coba lagi.'});
 };
+$('key').addEventListener('keydown',function(e){if(e.key==='Enter')$('keyOk').click()});
+$('logout').onclick=function(){localStorage.removeItem(KEYK);showKey('')};
 (function(){
   var th=$('theme'),d=document.documentElement;
   function sync(){th.textContent=d.getAttribute('data-theme')==='dark'?'☀':'☾'}
@@ -165,7 +156,10 @@ $('logout').onclick=function(){
 /* jaga layar tetap menyala */
 function wake(){try{if(navigator.wakeLock)navigator.wakeLock.request('screen').catch(function(){})}catch(e){}}
 document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible')wake()});
-wake();idle();next(1500);
+wake();
+if(!API||API.indexOf('GANTI')===0)showKey('URL Apps Script belum diisi di config.js.');
+else if(key())showMain();
+else showKey('');
 </script>
 </body>
 </html>
