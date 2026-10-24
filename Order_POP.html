@@ -81,7 +81,7 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid 
   <button class="back" data-back>‹ Kembali</button>
   <h1>Cek proses</h1>
   <p class="sub">Masukkan ID order kamu.</p>
-  <input id="cekId" placeholder="Contoh: POP-0001" autocapitalize="characters" autocomplete="off">
+  <input id="cekId" placeholder="ID order atau nama brand" autocomplete="off">
   <button class="go" id="cekBtn" type="button">Cek</button>
   <div class="sum hidden" id="cekRes" role="status"></div>
 </div>
@@ -270,6 +270,15 @@ $("send").onclick=async function(){
   s.classList.remove("hidden");
 };
 $("cekBtn").onclick=async function(){
+  var r=$("cekRes"),q=$("cekId").value.trim();
+  if(!q)return;
+  r.classList.remove("hidden");
+  if(!APPS_URL){r.textContent="Alamat Apps Script belum diisi di file HTML.";return}
+  r.textContent="Mencari...";
+  try{var j=await(await fetch(APPS_URL+"?q="+encodeURIComponent(q))).json();
+    r.innerHTML=j.ok?j.items.map(function(o){return"<dl><dt>ID</dt><dd>"+esc(o.id)+"</dd><dt>Brand</dt><dd>"+esc(o.brand)+"</dd><dt>Jenis</dt><dd>"+esc(o.jenis)+"</dd><dt>Waktu</dt><dd>"+esc(o.waktu)+"</dd><dt>Status</dt><dd>"+esc(o.status)+"</dd>"+(o.catatan?"<dt>Catatan</dt><dd>"+esc(o.catatan)+"</dd>":"")+"</dl>"}).join("<hr>"):"Order tidak ditemukan. Ketik ID order atau minimal 3 huruf nama brand."
+  }catch(e){r.textContent="Gagal mengecek. Coba lagi."}
+};
   var r=$("cekRes"),id=$("cekId").value.trim().toUpperCase();
   if(!id)return;
   r.classList.remove("hidden");
