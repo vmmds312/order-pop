@@ -235,7 +235,7 @@ function check(){
   $("msgs").innerHTML=m.map(function(x){return'<li class="'+x[0]+'">'+x[1]+"</li>"}).join("");
   return !m.some(function(x){return x[0]==="e"});
 }
-var APPS_URL="";/*https://script.google.com/macros/s/AKfycbyJbFFOVxoDI1q9sTEFcG2FV7VjZlrL0J3GtWd3I2SvZM7BH8-I5_lkAVpm-aaiXVfz7g/exec*/
+var APPS_URL="https://script.google.com/macros/s/AKfycbyJbFFOVxoDI1q9sTEFcG2FV7VjZlrL0J3GtWd3I2SvZM7BH8-I5_lkAVpm-aaiXVfz7g/exec";/* tempel URL web app Apps Script (berakhiran /exec) di sini */
 function plain(t){
   var rp=function(x){return"Rp"+x};
   if(t==="cp"){var v=$("cpv").value;return $("cpv").options[$("cpv").selectedIndex].text+" | "+CPF.filter(function(f){return f[3].test(v)}).map(function(f){return f[1]+": "+$("c"+f[0]).value}).join(", ")}
