@@ -36,7 +36,7 @@ button{font:inherit;font-weight:600;border:0;border-radius:999px;padding:0 18px;
 .add{background:transparent;border:1.5px dashed var(--r2);color:var(--r2);width:100%;margin-top:14px}
 .del{background:var(--inp);color:var(--mute);height:44px;padding:0 14px;border:1px solid var(--line);border-radius:14px}
 #theme{width:44px;padding:0;border-radius:14px;font-size:18px;background:var(--card);border:1px solid var(--line);box-shadow:0 6px 16px var(--sh)}
-#logout{background:var(--card);border:1px solid var(--line);box-shadow:0 6px 16px var(--sh);height:44px;border-radius:14px;color:var(--r2)}
+#logout,#toOrders{background:var(--card);border:1px solid var(--line);box-shadow:0 6px 16px var(--sh);height:44px;border-radius:14px;color:var(--r2)}
 .msgs{margin:16px 0 0;padding:0;list-style:none;display:grid;gap:6px}
 .msgs li{padding:9px 12px;border-radius:14px;font-size:13px}
 .msgs .e{background:var(--errbg);color:var(--err)}.msgs .w{background:var(--warnbg);color:var(--warn)}.msgs .o{background:var(--okbg);color:var(--ok)}
@@ -66,6 +66,7 @@ button{font:inherit;font-weight:600;border:0;border-radius:999px;padding:0 18px;
 .print:disabled{opacity:.5;cursor:default}
 .prev img{max-width:100%;max-height:78vh;border-radius:12px;border:1px solid var(--line);box-shadow:0 8px 24px var(--sh);background:#fff}
 .hint{color:var(--mute);font-size:12px;margin:12px 0 0}
+@media(max-width:520px){.bar{flex-wrap:wrap}.tools{width:100%}.tools button{flex:1}.tools #theme{flex:none}}
 </style>
 <script>if(matchMedia("(prefers-color-scheme: dark)").matches)document.documentElement.setAttribute("data-theme","dark")</script>
 <style id="lockcss">body{visibility:hidden}</style>
@@ -106,7 +107,7 @@ button{font:inherit;font-weight:600;border:0;border-radius:999px;padding:0 18px;
 <div class="wrap">
 <header class="bar">
   <div class="brand"><div class="logo">MDS</div><div><h1>Form POP MDS</h1><p class="sub">Isi data, POP langsung tersusun sesuai panduan MDS Collateral 2026.</p></div></div>
-  <div class="tools"><button id="theme" type="button" aria-label="Ganti tema">☾</button><button id="logout" type="button">Keluar</button></div>
+  <div class="tools"><button id="theme" type="button" aria-label="Ganti tema">☾</button><button id="toOrders" type="button">Order</button><button id="logout" type="button">Keluar</button></div>
 </header>
 <section class="card">
   <label for="tipe">Jenis POP</label>
@@ -816,6 +817,7 @@ $('print').onclick=function(){
   function sync(){th.textContent=d.getAttribute('data-theme')==='dark'?'☀':'☾'}
   th.onclick=function(){d.setAttribute('data-theme',d.getAttribute('data-theme')==='dark'?'light':'dark');sync()};
   sync();
+  $('toOrders').onclick=function(){location.href='orders.html'};
   $('logout').onclick=function(){
     ['mds_token','mds_fp_token'].forEach(function(k){sessionStorage.removeItem(k);localStorage.removeItem(k)});
     sessionStorage.removeItem('mds_user');location.replace('login.html');
