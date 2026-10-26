@@ -97,7 +97,7 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid 
 
   <section class="f"><h2>Header</h2>
     <div class="two"><select id="header" aria-label="Header"><option value="">Pilih header</option><option value="na">New Arrival</option><option value="ht">Harga Terbaik</option><option value="promo">Promo</option><option value="reg">Reguler</option><option value="lain">Lainnya</option></select>
-    <select id="promo" class="hidden" aria-label="Jenis promo"><option value="sp">Special Price (Harga Coret)</option><option value="md">Mulai Dari</option><option value="cp">Campaign</option></select>
+    <select id="promo" class="hidden" aria-label="Jenis promo"><option value="sp">Special Price (Harga Coret)</option><option value="md">Mulai Dari</option><option value="lc">Label Coret (rentang harga)</option><option value="cp">Campaign</option></select>
     <select id="lain" class="hidden" aria-label="Jenis POP"><option value="sl">Sale (khusus event sale)</option><option value="ph">Product Highlight</option><option value="l5">Daftar 5 harga</option></select></div></section>
 
   <section class="f"><h2>Ukuran kertas</h2>
@@ -115,6 +115,11 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid 
     <div class="cpf"><div id="wsd"><label for="sld">Persen diskon</label><input id="sld" inputmode="numeric" value="50"></div>
     <div id="wsq" class="hidden"><label for="sgq">Beli pertama (X)</label><input id="sgq" inputmode="numeric" value="1"></div>
     <div id="wsg" class="hidden"><label for="sgb" id="lbsgb">Beli (jumlah)</label><input id="sgb" inputmode="numeric" value="2"><label for="sgg" style="margin-top:8px">Gratis (jumlah)</label><input id="sgg" inputmode="numeric" value="1"></div></div></section>
+
+  <section class="f hidden" id="lcBox"><h2>Label coret</h2><div class="cpf">
+    <div><label for="lca">Harga coret dari</label><input id="lca" inputmode="numeric" placeholder="Harga (Rp)"></div>
+    <div><label for="lcb">Harga coret sampai (opsional)</label><input id="lcb" inputmode="numeric" placeholder="Kosongkan jika satu harga"></div>
+    <div><label for="lcp">Harga jadi</label><input id="lcp" inputmode="numeric" placeholder="Harga (Rp)"></div></div></section>
 
   <section class="f hidden" id="phBox"><h2>Product Highlight</h2><div class="cpf">
     <div><label for="phc">Kategori produk</label><select id="phc"></select><input id="phcl" class="hidden" placeholder="Tulis kategori lain" aria-label="Kategori lain" style="margin-top:6px"></div>
@@ -163,6 +168,7 @@ function slFields(){var v=$("slv").value,h=function(i,x){$(i).classList.toggle("
 $("phc").innerHTML='<option value="">Pilih kategori</option>'+KATEGORI.map(function(k){return"<option>"+k+"</option>"}).join("")+'<option value="__lain">Yang lain:</option>';
 $("phc").onchange=function(){$("phcl").classList.toggle("hidden",this.value!=="__lain")};
 $("php").oninput=function(){var q=this.value.replace(/\D/g,"");this.value=q?fmt(q):""};
+["lca","lcb","lcp"].forEach(function(i){$(i).oninput=function(){var q=this.value.replace(/\D/g,"");this.value=q?fmt(q):""}});
 
 $("cpf").innerHTML=CPF.map(function(f){return'<div id="w'+f[0]+'"><label for="c'+f[0]+'">'+f[1]+'</label><input id="c'+f[0]+'" inputmode="numeric" value="'+f[2]+'"></div>'}).join("");
 $("header").onchange=$("promo").onchange=$("lain").onchange=$("cpv").onchange=$("slv").onchange=render;
@@ -173,12 +179,12 @@ function render(){
   $("lain").classList.toggle("hidden",h!=="lain");
   buildSizes();
   $("slBox").classList.toggle("hidden",t!=="sl");
-  $("phBox").classList.toggle("hidden",t!=="ph");
+  $("phBox").classList.toggle("hidden",t!=="ph");$("lcBox").classList.toggle("hidden",t!=="lc");
   if(t==="sl")slFields();
   $("phkW").classList.toggle("hidden",!(t==="ph"&&st.size==="A4"));
   $("katWrap").classList.toggle("hidden",t!=="na");
   $("cpBox").classList.toggle("hidden",t!=="cp");
-  var rowsOn=!!t&&t!=="cp"&&t!=="sl"&&t!=="ph";
+  var rowsOn=!!t&&t!=="cp"&&t!=="sl"&&t!=="ph"&&t!=="lc";
   $("prodWrap").classList.toggle("hidden",!rowsOn);
   if(t==="cp"){var v=$("cpv").value;CPF.forEach(function(f){$("w"+f[0]).classList.toggle("hidden",!f[3].test(v))})}
   if(!rowsOn){return}
@@ -216,6 +222,13 @@ function check(){
     if(/v[123]/.test(v)){if(g("a")<1||g("a")>99)m.push(["e","Diskon harus 1 sampai 99%."]);if(v==="v3"&&(g("b")<1||g("b")>99))m.push(["e","Diskon beli kedua harus 1 sampai 99%."])}
     else{var o=g("o"),p1=g("p1"),p2=g("p2");if(!p1)m.push(["e","Harga beli pertama belum diisi."]);if(/v[45]/.test(v)&&!p2)m.push(["e","Harga beli kedua belum diisi."]);if(!o)m.push(["e","Harga normal (dicoret) wajib diisi."]);else if(p1&&o<=p1)m.push(["e","Harga normal harus lebih besar dari harga promo."])}
     m.push(["w","Hanya untuk campaign yang sudah tersedia. Campaign baru didesain oleh HO."]);
+  }else if(t==="lc"){
+    var la=num($("lca").value),lb=num($("lcb").value),lp=num($("lcp").value);
+    if(!la)m.push(["e","Harga coret (dari) belum diisi."]);
+    if(!lp)m.push(["e","Harga jadi belum diisi."]);
+    if(lb&&la&&lb<=la)m.push(["e","Harga coret sampai harus lebih besar dari harga coret dari."]);
+    if(la&&lp&&lp>=la)m.push(["e","Harga jadi harus lebih kecil dari harga coret terendah."]);
+    [[la,"Harga coret dari"],[lb,"Harga coret sampai"],[lp,"Harga jadi"]].forEach(function(z){var k=z[0]%1000;if(z[0]&&k!==0&&k!==900)m.push(["w",z[1]+" Rp"+fmt(z[0])+" termasuk nominal anomali. Cek lagi (biasanya berakhir .900 atau .000)."])});
   }else if(t==="sl"){
     var sv=$("slv").value,d=num($("sld").value),sg=function(i){return num($(i).value)};
     if(sv!=="g"){var ok=sv==="ic"?[10,20,30]:[20,30,40,50,60,70,75];if(d<1||d>99)m.push(["e","Persen diskon harus 1 sampai 99."]);else if(sv!=="cb"&&ok.indexOf(d)<0)m.push(["w","Persen yang ada di panduan: "+ok.join(", ")+"%."])}
@@ -240,9 +253,10 @@ function check(){
   $("msgs").innerHTML=m.map(function(x){return'<li class="'+x[0]+'">'+x[1]+"</li>"}).join("");
   return !m.some(function(x){return x[0]==="e"});
 }
-var APPS_URL="https://script.google.com/macros/s/AKfycbyJbFFOVxoDI1q9sTEFcG2FV7VjZlrL0J3GtWd3I2SvZM7BH8-I5_lkAVpm-aaiXVfz7g/exec";/* tempel URL web app Apps Script (berakhiran /exec) di sini */
+var APPS_URL="https://script.google.com/macros/s/AKfycbyBUi8HxG_wkn6MQirdW-dR-a4lIPDnb5FsbVM94ekQhQ3upP13TE9g71Wtl7kdlNnV/exec";/* tempel URL web app Apps Script (berakhiran /exec) di sini */
 function plain(t){
   var rp=function(x){return"Rp"+x};
+  if(t==="lc")return"Coret "+rp($("lca").value)+($("lcb").value?" - "+rp($("lcb").value):"")+" jadi "+rp($("lcp").value);
   if(t==="cp"){var v=$("cpv").value;return $("cpv").options[$("cpv").selectedIndex].text+" | "+CPF.filter(function(f){return f[3].test(v)}).map(function(f){return f[1]+": "+$("c"+f[0]).value}).join(", ")}
   if(t==="sl"){var sv=$("slv").value;return $("slv").options[$("slv").selectedIndex].text+" | "+[sv!=="g"?"Diskon "+$("sld").value+"%":"",sv==="cb"?"Beli pertama "+$("sgq").value:"",sv==="g"||sv==="cb"?"Beli "+$("sgb").value+" gratis "+$("sgg").value:""].filter(Boolean).join(", ")}
   if(t==="ph")return phName()+" "+rp($("php").value)+", teks "+$("pht").value+($("phkW").classList.contains("hidden")?"":", posisi "+$("phk").value);
