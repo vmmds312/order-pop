@@ -45,6 +45,16 @@ button{font:inherit;font-weight:600;border:0;border-radius:999px;padding:0 18px;
 .send{width:100%;height:48px;background:transparent;border:1.5px solid var(--r2);color:var(--r2);margin:0 0 6px}
 .send:disabled{opacity:.5;cursor:default}
 #sendmsg{margin:4px 0 12px;font-size:13px;font-weight:600;color:var(--r2)}
+.jhead{display:flex;justify-content:space-between;align-items:center;margin:6px 0 8px;font-size:14px}
+.lnk{background:none;border:0;color:var(--mute);font-size:12px;font-weight:500;height:auto;padding:0;text-decoration:underline;box-shadow:none;border-radius:0}
+.jobs{list-style:none;margin:0 0 14px;padding:0;display:grid;gap:8px;text-align:left}
+.jobs li{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;background:var(--inp);border:1px solid var(--line)}
+.jl{min-width:0}.jl b{display:block;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.jl span{font-size:11px;color:var(--mute)}
+.jb{flex:none;font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px;background:var(--warnbg);color:var(--warn)}
+.jb-mencetak{background:rgba(30,100,220,.16);color:#2c6fe0;animation:jp 1s infinite}
+.jb-selesai{background:var(--okbg);color:var(--ok)}
+.jb-gagal{background:var(--errbg);color:var(--err)}
+@keyframes jp{50%{opacity:.5}}
 .modal{position:fixed;top:0;right:0;bottom:0;left:0;z-index:50;display:grid;place-items:center;padding:20px;background:rgba(40,0,6,.5)}
 .mbox{width:100%;max-width:380px;background:var(--bg1);-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:0 20px 50px rgba(0,0,0,.35)}
 .mbox h2{font-size:17px;margin:0 0 4px}
@@ -187,6 +197,7 @@ button{font:inherit;font-weight:600;border:0;border-radius:999px;padding:0 18px;
   <button class="print" id="print" type="button">Cetak</button>
   <button class="send" id="send" type="button">Kirim ke PC cetak</button>
   <p id="sendmsg" hidden></p>
+  <div id="jobsBox" hidden><div class="jhead"><b>Antrian cetak</b><button type="button" id="jobsClear" class="lnk">Bersihkan yang selesai</button></div><ul class="jobs" id="jobs"></ul></div>
   <img id="img" alt="Preview POP">
   <p class="hint">Untuk menyimpan: klik kanan gambar lalu Save image, atau tekan lama di HP. Tombol Cetak memakai ukuran kertas sesuai POP (A5 dicetak 2x di satu lembar A4).</p>
 </section>
@@ -755,21 +766,35 @@ $('print').onclick=function(){
 };
 /* ==== KIRIM KE PC CETAK (antrian) ==== */
 (function(){
-  var API=window.MDS_API||'',busy=false;
+  var API=window.MDS_API||'',KEY='mds_send_jobs',sending=false,timer=null,polling=false;
+  var LBL={menunggu:'Menunggu',mencetak:'Mencetak…',selesai:'Selesai ✓',gagal:'Gagal'};
   function tok(){return sessionStorage.getItem('mds_token')||localStorage.getItem('mds_token')}
   function post(b){return fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(b)}).then(function(r){return r.json()})}
-  function say(t){var m=$('sendmsg');m.textContent=t;m.hidden=!t}
-  function track(id,n){
-    if(n>45){say('Belum ada kabar dari PC. Pastikan Stasiun Cetak menyala dan terbuka.');$('send').disabled=false;busy=false;return}
-    setTimeout(function(){
-      post({action:'cek',token:tok(),id:id}).then(function(r){
-        if(!r.ok){say('Terkirim, tapi status tidak bisa dicek ('+(r&&r.error?r.error:'?')+').');$('send').disabled=false;busy=false;return}
-        if(r.status==='selesai'){say('Selesai dicetak ✓');$('send').disabled=false;busy=false}
-        else if(r.status==='gagal'){say('Gagal dicetak. Cek PC cetak.');$('send').disabled=false;busy=false}
-        else{say(r.status==='mencetak'?'Sedang dicetak di PC…':'Terkirim. Menunggu PC cetak…');track(id,n+1)}
-      }).catch(function(){track(id,n+1)});
-    },4000);
+  function say(t,ms){var m=$('sendmsg');m.textContent=t;m.hidden=!t;if(t&&ms)setTimeout(function(){if(m.textContent===t)m.hidden=true},ms)}
+  function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+  function hm(t){var d=new Date(t);return ('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2)}
+  function active(j){return j.s==='menunggu'||j.s==='mencetak'}
+  function load(){try{var a=JSON.parse(localStorage.getItem(KEY)||'[]'),lim=Date.now()-864e5;return a.filter(function(j){return j&&j.id&&j.t>lim})}catch(e){return []}}
+  var jobs=load();
+  function save(){try{localStorage.setItem(KEY,JSON.stringify(jobs.slice(0,10)))}catch(e){}}
+  function draw(){
+    $('jobsBox').hidden=!jobs.length;
+    $('jobsClear').hidden=!jobs.some(function(j){return !active(j)});
+    $('jobs').innerHTML=jobs.map(function(j){
+      var wait=j.s==='menunggu'&&Date.now()-j.t>300000;
+      return '<li><div class="jl"><b>'+esc(j.l)+'</b><span>'+j.n+' lembar · '+hm(j.t)+(wait?' · PC belum merespons':'')+'</span></div><span class="jb jb-'+j.s+'">'+(LBL[j.s]||j.s)+'</span></li>';
+    }).join('');
   }
+  function tick(){
+    timer=null;if(polling)return;
+    var act=jobs.filter(active);if(!act.length)return;
+    polling=true;var chain=Promise.resolve();
+    act.forEach(function(j){chain=chain.then(function(){return post({action:'cek',token:tok(),id:j.id}).then(function(r){
+      if(r&&r.ok&&r.status)j.s=r.status;else if(r&&r.error==='tidak_ada')j.s='gagal';
+    }).catch(function(){})})});
+    chain.then(function(){polling=false;save();draw();if(jobs.some(active))timer=setTimeout(tick,4000)});
+  }
+  function start(){if(!timer&&!polling&&jobs.some(active))timer=setTimeout(tick,1500)}
   function isA3(){return !$('paperBox').hidden&&document.querySelector('input[name=kertas]:checked').value==='a3'}
   function paperUI(){
     var a3=isA3();
@@ -778,15 +803,17 @@ $('print').onclick=function(){
   }
   function qtyVal(){var n=parseInt($('qty').value,10);return Math.max(1,Math.min(50,isNaN(n)?1:n))}
   function doSend(pw,ph,label,copies){
-    busy=true;$('send').disabled=true;say('Mengirim…');
+    sending=true;$('send').disabled=true;say('Mengirim…');
     post({action:'enqueue',token:tok(),label:label,w:pw,h:ph,copies:copies,img:$('img').src}).then(function(r){
-      if(!r.ok){say(r.error==='sesi'?'Sesi habis. Masuk lagi.':'Gagal mengirim ('+(r.error||'error')+').');$('send').disabled=false;busy=false;return}
-      say('Terkirim ('+copies+' lembar). Antrian ke-'+r.posisi+'.');track(r.id,0);
-    }).catch(function(){say('Tidak bisa terhubung. Coba lagi.');$('send').disabled=false;busy=false});
+      sending=false;$('send').disabled=false;
+      if(!r.ok){say(r.error==='sesi'?'Sesi habis. Masuk lagi.':'Gagal mengirim ('+(r.error||'error')+').');return}
+      jobs.unshift({id:r.id,l:label,n:copies,t:Date.now(),s:'menunggu'});jobs=jobs.slice(0,10);save();draw();
+      say('Terkirim ✓ Antrian ke-'+r.posisi+'. Boleh kirim POP lain.',5000);start();
+    }).catch(function(){sending=false;$('send').disabled=false;say('Tidak bisa terhubung. Coba lagi.')});
   }
   var pend=null;
   $('send').onclick=function(){
-    if(busy)return;
+    if(sending)return;
     var im=$('img');if(!im.src||!im.naturalWidth)return;
     var r=im.naturalWidth/im.naturalHeight,pw=210,ph=297;
     if(Math.abs(r-1)<.02){pw=120;ph=120}else if(r>1.5){pw=630;ph=297}
@@ -810,6 +837,8 @@ $('print').onclick=function(){
     $('paperModal').hidden=true;
     doSend(a3?297:pend.pw,a3?420:pend.ph,pend.label+(a3?' → kertas A3':''),n);
   };
+  $('jobsClear').onclick=function(){jobs=jobs.filter(active);save();draw()};
+  draw();start();
 })();
 /* ==== TEMA / KELUAR ==== */
 (function(){
