@@ -76,10 +76,9 @@ code{font-family:Consolas,monospace;font-size:12px;background:var(--inp);padding
     <details>
       <summary>Pengaturan PC supaya mencetak tanpa dialog</summary>
       <ol>
-        <li>Atur printer yang dipakai sebagai <b>printer default</b> di Windows (Settings &gt; Bluetooth &amp; devices &gt; Printers &amp; scanners).</li>
-        <li>Buat shortcut Edge untuk halaman ini: klik kanan Desktop &gt; New &gt; Shortcut, lalu isi <code>"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" --kiosk-printing https://vmmds312.github.io/order-pop/station.html</code></li>
-        <li>Buka halaman ini <b>lewat shortcut itu</b>. Cetakan akan langsung keluar tanpa dialog. Kunci stasiun hanya diminta sekali.</li>
-        <li>Jangan minimize jendelanya, dan atur Windows supaya tidak tidur saat dicolokkan ke listrik (Settings &gt; System &gt; Power).</li>
+        <li>Buat dua shortcut Edge, satu untuk tiap ukuran kertas (profil terpisah supaya masing-masing mengingat ukuran kertasnya):<br>A4: <code>"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" --kiosk-printing --user-data-dir="C:\StasiunA4" https://vmmds312.github.io/order-pop/station.html?kertas=a4</code><br>A3: <code>"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" --kiosk-printing --user-data-dir="C:\StasiunA3" https://vmmds312.github.io/order-pop/station.html?kertas=a3</code></li>
+        <li>Setelan sekali untuk A3: buka shortcut yang sama <b>tanpa</b> <code>--kiosk-printing</code>, tekan Ctrl+P, pilih printer dan Paper size <b>A3</b>, lalu tutup dialognya.</li>
+        <li>Buka kedua shortcut dan masukkan kunci stasiun di masing-masing. Jangan minimize jendelanya, dan atur Windows supaya tidak tidur.</li>
       </ol>
     </details>
   </section>
@@ -88,6 +87,10 @@ code{font-family:Consolas,monospace;font-size:12px;background:var(--inp);padding
 <script>
 var $=function(i){return document.getElementById(i)};
 var API=window.MDS_API||'',POLL_MS=5000,KEYK='mds_station_key';
+var KERTAS=(new URLSearchParams(location.search).get('kertas')||'').toLowerCase();if(KERTAS!=='a3'&&KERTAS!=='a4')KERTAS='';
+var KLBL=KERTAS?' '+KERTAS.toUpperCase():'';
+document.title='Stasiun Cetak'+KLBL+' MDS';
+document.querySelector('h1').textContent='Stasiun Cetak'+KLBL;
 var busy=false,count=0,timer=null,logs=[],stopped=true;
 function key(){return localStorage.getItem(KEYK)||''}
 function post(b){return fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(b)}).then(function(r){return r.json()})}
@@ -122,7 +125,7 @@ function printJob(job){
   });
 }
 function next(ms){clearTimeout(timer);if(stopped)return;timer=setTimeout(tick,ms||POLL_MS)}
-function idle(){setSt('ok','Siap menerima cetakan','Memeriksa antrian tiap '+(POLL_MS/1000)+' detik')}
+function idle(){setSt('ok','Siap menerima cetakan'+KLBL,'Memeriksa antrian tiap '+(POLL_MS/1000)+' detik')}
 function showKey(msg){stopped=true;clearTimeout(timer);$('main').hidden=true;$('keyCard').hidden=false;$('keyMsg').textContent=msg||'';$('key').value=''}
 function showMain(){$('keyCard').hidden=true;$('main').hidden=false;stopped=false;idle();next(500)}
 function tick(){
@@ -130,7 +133,7 @@ function tick(){
   if(!$('auto').checked){setSt('','Cetak otomatis dimatikan','Nyalakan lagi untuk melanjutkan');next();return}
   if(busy){next();return}
   busy=true;
-  post({action:'poll',key:key()}).then(function(r){
+  post({action:'poll',key:key(),kertas:KERTAS}).then(function(r){
     if(!r.ok){
       busy=false;
       if(r.error==='kunci'||r.error==='sesi'){showKey('Kunci salah atau sudah diganti. Masukkan lagi.');return}
