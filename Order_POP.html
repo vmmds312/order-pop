@@ -98,7 +98,7 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid 
 
   <section class="f"><h2>Header</h2>
     <div class="two"><select id="header" aria-label="Header"><option value="">Pilih header</option><option value="na">New Arrival</option><option value="ht">Harga Terbaik</option><option value="promo">Promo</option><option value="reg">Reguler</option><option value="lain">Lainnya</option></select>
-    <select id="promo" class="hidden" aria-label="Jenis promo"><option value="sp">Special Price (Harga Coret)</option><option value="md">Mulai Dari</option><option value="cp">Campaign</option></select>
+    <select id="promo" class="hidden" aria-label="Jenis promo"><option value="sp">Special Price (Harga Coret)</option><option value="md">Mulai Dari</option><option value="lc">Label Coret (rentang harga)</option><option value="cp">Campaign</option></select>
     <select id="lain" class="hidden" aria-label="Jenis POP"><option value="sl">Sale (khusus event sale)</option><option value="ph">Product Highlight</option><option value="l5">Daftar 5 harga</option></select></div></section>
 
   <section class="f"><h2>Ukuran kertas</h2>
@@ -133,6 +133,11 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid 
     <div class="cpf"><div id="wsd"><label for="sld">Persen diskon</label><input id="sld" inputmode="numeric" value="50"></div>
     <div id="wsq" class="hidden"><label for="sgq">Beli pertama (X)</label><input id="sgq" inputmode="numeric" value="1"></div>
     <div id="wsg" class="hidden"><label for="sgb" id="lbsgb">Beli (jumlah)</label><input id="sgb" inputmode="numeric" value="2"><label for="sgg" style="margin-top:8px">Gratis (jumlah)</label><input id="sgg" inputmode="numeric" value="1"></div></div></section>
+
+  <section class="f hidden" id="lcBox"><h2>Label coret</h2><div class="cpf">
+    <div><label for="lca">Harga coret dari</label><input id="lca" inputmode="numeric" placeholder="Harga (Rp)"></div>
+    <div><label for="lcb">Harga coret sampai (opsional)</label><input id="lcb" inputmode="numeric" placeholder="Kosongkan jika satu harga"></div>
+    <div><label for="lcp">Harga jadi</label><input id="lcp" inputmode="numeric" placeholder="Harga (Rp)"></div></div></section>
 
   <section class="f hidden" id="phBox"><h2>Product Highlight</h2><div class="cpf">
     <div><label for="phc">Kategori produk</label><select id="phc"></select><input id="phcl" class="hidden" placeholder="Tulis kategori lain" aria-label="Kategori lain" style="margin-top:6px"></div>
