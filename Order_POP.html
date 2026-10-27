@@ -44,10 +44,11 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid 
 .sheet::after{content:"";position:absolute;left:12%;right:12%;top:14%;height:12%;background:linear-gradient(90deg,var(--r1),var(--r2))}
 .size small{color:var(--mu);font-size:12px;text-align:center}
 .note{background:var(--note);color:var(--noteink);border-radius:14px;padding:10px 14px;margin:12px 0 0;font-weight:600;font-size:14px}
-.two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.two{display:grid;grid-template-columns:1fr;gap:8px}.two:has(select:not(#header):not(.hidden)){grid-template-columns:1fr 1fr}
 .cpf{display:grid;gap:10px;margin-top:10px}.cpf label{font-size:13px;color:var(--mu);display:block;margin-bottom:4px}
 .row{display:grid;grid-template-columns:1.2fr 1fr auto;gap:8px;margin-bottom:8px;align-items:start}
-.row.three{grid-template-columns:1.2fr 1fr 1fr auto}.row.one{grid-template-columns:1fr auto}
+.row.three{grid-template-columns:1fr 1fr 1fr 1fr auto;align-items:center}
+.row.one{grid-template-columns:1fr auto}
 .x{width:44px;height:52px;background:var(--card);border:1px solid var(--bd);border-radius:16px;color:var(--mu);font-size:22px;cursor:pointer}
 .add{font:inherit;font-weight:600;color:var(--r2);background:transparent;border:1.5px dashed var(--r1);border-radius:999px;height:52px;width:100%;cursor:pointer}
 .add:disabled{color:var(--mu);border-color:var(--bd);cursor:not-allowed}
@@ -103,14 +104,15 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid 
   <section class="f"><h2>Ukuran kertas</h2>
     <div class="sizes" id="sizes"></div></section>
 
-  <section class="f"><h2>Jumlah &amp; Format Cetak</h2>
+  <section class="f">
+    <h2>Jumlah & Jenis Cetak</h2>
     <div class="two">
       <div>
-        <label for="jmlInput" style="font-size:13px;color:var(--mu);display:block;margin-bottom:4px">Jumlah</label>
-        <input id="jmlInput" type="number" min="1" value="1" inputmode="numeric">
+        <label for="jmlLembar" style="font-size:13px;color:var(--mu);display:block;margin-bottom:4px">Jumlah</label>
+        <input id="jmlLembar" type="number" min="1" value="1" inputmode="numeric">
       </div>
       <div>
-        <label for="tipeCetak" style="font-size:13px;color:var(--mu);display:block;margin-bottom:4px">Format</label>
+        <label for="tipeCetak" style="font-size:13px;color:var(--mu);display:block;margin-bottom:4px">Format Cetak</label>
         <select id="tipeCetak">
           <option value="Lembar">Lembar</option>
           <option value="Bolak Balik">Bolak Balik (2 Lembar)</option>
@@ -161,7 +163,7 @@ var nm=function(r){return r.n==="__lain"?(r.nl||"").trim():r.n};
 var phName=function(){return $("phc").value==="__lain"?$("phcl").value.trim():$("phc").value};
 var SIZES=[{k:"A5",w:85,h:60,o:"Landscape"},{k:"A4",w:60,h:85,o:"Portrait"},{k:"A3",w:85,h:120,o:"Portrait"},{k:"A4 Long",w:96,h:30,o:"63 x 29,7 cm",only:"ph"},{k:"Bulat",w:64,h:64,o:"Beli 1 diskon + Beli X gratis X",only:"cb",round:1}];
 var CPF=[["q1","Beli berapa (X)",2,/v[1-6]/],["q2","Beli kedua (Y)",3,/v[345]/],["a","Diskon (%)",20,/v[123]/],["b","Diskon beli kedua (%)",30,/v3/],["o","Harga normal (dicoret)",179900,/v[456]/],["p1","Harga beli pertama / satuan",99900,/v[456]/],["p2","Harga beli kedua",79900,/v[45]/]];
-var st={divisi:null,size:null,rows:[{n:"",o:"",p:""}]};
+var st={divisi:null,size:null,rows:[{n:"",o:"",o2:"",p:""}]};
 var $=function(i){return document.getElementById(i)};
 function show(id){["home","cek","order"].forEach(function(x){$(x).classList.toggle("hidden",x!==id)});window.scrollTo(0,0)}
 $("goOrder").onclick=function(){show("order")};$("goCek").onclick=function(){show("cek")};
@@ -212,18 +214,34 @@ function render(){
   st.rows.forEach(function(r,i){
     var d=document.createElement("div");d.className="row"+(t==="md"?" one":t==="sp"?" three":"");
     var sel='<div><select data-k="n" aria-label="Produk kategori"><option value="">Produk kategori</option>'+KATEGORI.map(function(k){return"<option"+(r.n===k?" selected":"")+">"+k+"</option>"}).join("")+'<option value="__lain"'+(r.n==="__lain"?" selected":"")+'>Yang lain:</option></select>'+(r.n==="__lain"?'<input data-k="nl" placeholder="Tulis kategori lain" aria-label="Kategori lain" value="'+esc(r.nl||"")+'" style="margin-top:6px">':"")+"</div>";
-    var h2=(t==="md"?"":sel)+(t==="sp"?'<input data-k="o" inputmode="numeric" placeholder="Harga sebelum" aria-label="Harga sebelum" value="'+esc(r.o)+'">':"")+'<input data-k="p" inputmode="numeric" placeholder="'+(t==="sp"?"Harga promo":"Harga (Rp)")+'" aria-label="Harga" value="'+esc(r.p)+'"><button class="x" type="button" aria-label="Hapus baris">×</button>';
+    
+    var h2="";
+    if(t==="md"){
+      h2='<input data-k="p" inputmode="numeric" placeholder="Harga (Rp)" aria-label="Harga" value="'+esc(r.p)+'"><button class="x" type="button" aria-label="Hapus baris">×</button>';
+    }else if(t==="sp"){
+      // Tata letak special price: Kategori di atas, baris bawah: Harga Sebelum 1 - Harga Sebelum 2 (opsional) Harga Jadi
+      d.className="row three";
+      sel='<div style="grid-column: 1 / -1;"><select data-k="n" aria-label="Produk kategori"><option value="">Produk kategori</option>'+KATEGORI.map(function(k){return"<option"+(r.n===k?" selected":"")+">"+k+"</option>"}).join("")+'<option value="__lain"'+(r.n==="__lain"?" selected":"")+'>Yang lain:</option></select>'+(r.n==="__lain"?'<input data-k="nl" placeholder="Tulis kategori lain" aria-label="Kategori lain" value="'+esc(r.nl||"")+'" style="margin-top:6px">':"")+"</div>";
+      h2=sel+'<input data-k="o" inputmode="numeric" placeholder="Harga sebelum 1" aria-label="Harga sebelum 1" value="'+esc(r.o)+'">' +
+         '<div style="display:flex;align-items:center;justify-content:center;color:var(--mu);font-weight:bold;">-</div>' +
+         '<input data-k="o2" inputmode="numeric" placeholder="Harga sebelum 2 (ops)" aria-label="Harga sebelum 2 (opsional)" value="'+esc(r.o2||"")+'">' +
+         '<input data-k="p" inputmode="numeric" placeholder="Harga jadi" aria-label="Harga jadi" value="'+esc(r.p)+'">' +
+         '<button class="x" type="button" aria-label="Hapus baris">×</button>';
+    }else{
+      h2=sel+'<input data-k="p" inputmode="numeric" placeholder="Harga (Rp)" aria-label="Harga" value="'+esc(r.p)+'"><button class="x" type="button" aria-label="Hapus baris">×</button>';
+    }
     d.innerHTML=h2;
+
     [].forEach.call(d.querySelectorAll("[data-k]"),function(el){el.oninput=el.onchange=function(){var k=el.dataset.k;
       if(k==="n"){if(st.rows[i].n===el.value)return;st.rows[i].n=el.value;render();return}
-      if(k==="o"||k==="p"){var q=el.value.replace(/\D/g,"");el.value=q?fmt(q):""}st.rows[i][k]=el.value}});
+      if(k==="o"||k==="o2"||k==="p"){var q=el.value.replace(/\D/g,"");el.value=q?fmt(q):""}st.rows[i][k]=el.value}});
     d.querySelector(".x").onclick=function(){if(st.rows.length>1){st.rows.splice(i,1);render()}};
     box.appendChild(d);
   });
   $("addRow").classList.toggle("hidden",t==="md");
   $("addRow").disabled=st.rows.length>=n;
 }
-$("addRow").onclick=function(){if(st.rows.length<maxN()){st.rows.push({n:"",o:"",p:""});render()}};
+$("addRow").onclick=function(){if(st.rows.length<maxN()){st.rows.push({n:"",o:"",o2:"",p:""});render()}};
 
 function check(){
   var t=type(),m=[],g=function(i){return num($("c"+i).value)};
@@ -231,7 +249,6 @@ function check(){
   if(!st.divisi)m.push(["e","Divisi belum dipilih."]);
   if(!$("header").value)m.push(["e","Header belum dipilih."]);
   if(!st.size)m.push(["e","Ukuran kertas belum dipilih."]);
-  if(num($("jmlInput").value)<1)m.push(["e","Jumlah lembar minimal 1."]);
   if(t==="cp"){
     var v=$("cpv").value,q1=g("q1"),q2=g("q2");
     if(q1<1||q1>99)m.push(["e","Jumlah beli (X) harus 1 sampai 99."]);
@@ -263,44 +280,42 @@ function check(){
       if(t!=="md"&&!nm(r))m.push(["e","Produk kategori baris "+x+" belum dipilih atau diisi."]);
       if(!p)m.push(["e","Harga baris "+x+" belum diisi."]);
       else if(k!==0&&k!==900)m.push(["w","Harga Rp"+fmt(p)+" termasuk nominal anomali. Cek lagi (biasanya berakhir .900 atau .000)."]);
-      if(t==="sp"){var o=num(r.o);if(!o)m.push(["e","Special Price wajib ada harga sebelum (baris "+x+")."]);else if(p&&o<=p)m.push(["e","Harga sebelum harus lebih besar dari harga promo (baris "+x+")."])}
+      if(t==="sp"){
+        var o=num(r.o);
+        if(!o)m.push(["e","Harga sebelum 1 wajib diisi (baris "+x+")."]);
+        else if(p&&o<=p)m.push(["e","Harga sebelum harus lebih besar dari harga jadi (baris "+x+")."]);
+      }
       if(t==="na"&&p>num($("kat").value))m.push(["w","Harga baris "+x+" di atas batas kategori. Sesuai aturan, pakai POP New Arrival tanpa harga."]);
     });
   }
   $("msgs").innerHTML=m.map(function(x){return'<li class="'+x[0]+'">'+x[1]+"</li>"}).join("");
   return !m.some(function(x){return x[0]==="e"});
 }
-var APPS_URL="https://script.google.com/macros/s/AKfycbyJbFFOVxoDI1q9sTEFcG2FV7VjZlrL0J3GtWd3I2SvZM7BH8-I5_lkAVpm-aaiXVfz7g/exec";/* tempel URL web app Apps Script (berakhiran /exec) di sini */
+var APPS_URL="https://script.google.com/macros/s/AKfycbyJbFFOVxoDI1q9sTEFcG2FV7VjZlrL0J3GtWd3I2SvZM7BH8-I5_lkAVpm-aaiXVfz7g/exec";
 function plain(t){
   var rp=function(x){return"Rp"+x};
   if(t==="lc")return"Coret "+rp($("lca").value)+($("lcb").value?" - "+rp($("lcb").value):"")+" jadi "+rp($("lcp").value);
   if(t==="cp"){var v=$("cpv").value;return $("cpv").options[$("cpv").selectedIndex].text+" | "+CPF.filter(function(f){return f[3].test(v)}).map(function(f){return f[1]+": "+$("c"+f[0]).value}).join(", ")}
   if(t==="sl"){var sv=$("slv").value;return $("slv").options[$("slv").selectedIndex].text+" | "+[sv!=="g"?"Diskon "+$("sld").value+"%":"",sv==="cb"?"Beli pertama "+$("sgq").value:"",sv==="g"||sv==="cb"?"Beli "+$("sgb").value+" gratis "+$("sgg").value:""].filter(Boolean).join(", ")}
   if(t==="ph")return phName()+" "+rp($("php").value)+", teks "+$("pht").value+($("phkW").classList.contains("hidden")?"":", posisi "+$("phk").value);
-  return st.rows.map(function(r){return(t==="md"?"Mulai dari":nm(r))+" "+(t==="sp"?rp(r.o)+" jadi ":"")+rp(r.p)}).join("; ")
+  return st.rows.map(function(r){
+    if(t==="sp"){
+      return nm(r)+" "+rp(r.o)+(r.o2?" - "+rp(r.o2):"")+" jadi "+rp(r.p);
+    }
+    return(t==="md"?"Mulai dari":nm(r))+" "+rp(r.p);
+  }).join("; ");
 }
 function readFoto(f){return new Promise(function(ok,no){var fr=new FileReader();fr.onerror=no;fr.onload=function(){var im=new Image();im.onerror=no;im.onload=function(){var k=Math.min(1,1280/Math.max(im.width,im.height)),c=document.createElement("canvas");c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext("2d").drawImage(im,0,0,c.width,c.height);ok(c.toDataURL("image/jpeg",.85).split(",")[1])};im.src=fr.result};fr.readAsDataURL(f)})}
 $("send").onclick=async function(){
   var s=$("sum"),b=$("send");s.classList.add("hidden");
   if(!check())return;
   if(!APPS_URL){s.textContent="Alamat Apps Script belum diisi di file HTML.";s.classList.remove("hidden");return}
-  
   var t=type(),H=$("header"),P=$("promo"),L=$("lain"),hn=H.options[H.selectedIndex].text;
-  var rawJml=parseInt($("jmlInput").value,10)||1;
+  var rawJml=parseInt($("jmlLembar").value)||1;
   var tipeCetak=$("tipeCetak").value;
   var totalLembarFaktual=tipeCetak==="Bolak Balik"?rawJml*2:rawJml;
 
-  var d={
-    brand:$("brand").value.trim(),
-    divisi:st.divisi,
-    header:hn,
-    jenis:H.value==="promo"?P.options[P.selectedIndex].text:H.value==="lain"?L.options[L.selectedIndex].text:hn,
-    ukuran:st.size,
-    jmlLembar:totalLembarFaktual,
-    tipeCetak:tipeCetak,
-    isi:plain(t)
-  };
-
+  var d={brand:$("brand").value.trim(),divisi:st.divisi,header:hn,jenis:H.value==="promo"?P.options[P.selectedIndex].text:H.value==="lain"?L.options[L.selectedIndex].text:hn,ukuran:st.size,jmlLembar:totalLembarFaktual,tipeCetak:tipeCetak,isi:plain(t)};
   b.disabled=true;b.textContent="Mengirim...";
   try{
     if(t==="ph"&&$("phf").files.length)d.foto=await readFoto($("phf").files[0]);
