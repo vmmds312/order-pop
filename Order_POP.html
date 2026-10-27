@@ -44,7 +44,7 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid 
 .sheet::after{content:"";position:absolute;left:12%;right:12%;top:14%;height:12%;background:linear-gradient(90deg,var(--r1),var(--r2))}
 .size small{color:var(--mu);font-size:12px;text-align:center}
 .note{background:var(--note);color:var(--noteink);border-radius:14px;padding:10px 14px;margin:12px 0 0;font-weight:600;font-size:14px}
-.two{display:grid;grid-template-columns:1fr;gap:8px}.two:has(select:not(#header):not(.hidden)){grid-template-columns:1fr 1fr}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .cpf{display:grid;gap:10px;margin-top:10px}.cpf label{font-size:13px;color:var(--mu);display:block;margin-bottom:4px}
 .row{display:grid;grid-template-columns:1.2fr 1fr auto;gap:8px;margin-bottom:8px;align-items:start}
 .row.three{grid-template-columns:1.2fr 1fr 1fr auto}.row.one{grid-template-columns:1fr auto}
@@ -102,6 +102,22 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid 
 
   <section class="f"><h2>Ukuran kertas</h2>
     <div class="sizes" id="sizes"></div></section>
+
+  <section class="f"><h2>Jumlah &amp; Format Cetak</h2>
+    <div class="two">
+      <div>
+        <label for="jmlInput" style="font-size:13px;color:var(--mu);display:block;margin-bottom:4px">Jumlah</label>
+        <input id="jmlInput" type="number" min="1" value="1" inputmode="numeric">
+      </div>
+      <div>
+        <label for="tipeCetak" style="font-size:13px;color:var(--mu);display:block;margin-bottom:4px">Format</label>
+        <select id="tipeCetak">
+          <option value="Lembar">Lembar</option>
+          <option value="Bolak Balik">Bolak Balik (2 Lembar)</option>
+        </select>
+      </div>
+    </div>
+  </section>
 
   <section class="f hidden" id="katWrap"><h2>Kategori (batas harga New Arrival)</h2>
     <select id="kat"><option value="500000">Apparel &amp; Footwear (maks Rp500.000)</option><option value="600000">Handbags (maks Rp600.000)</option><option value="200000">Beauty (maks Rp200.000)</option><option value="1500000">Travel (maks Rp1.500.000)</option></select></section>
@@ -215,6 +231,7 @@ function check(){
   if(!st.divisi)m.push(["e","Divisi belum dipilih."]);
   if(!$("header").value)m.push(["e","Header belum dipilih."]);
   if(!st.size)m.push(["e","Ukuran kertas belum dipilih."]);
+  if(num($("jmlInput").value)<1)m.push(["e","Jumlah lembar minimal 1."]);
   if(t==="cp"){
     var v=$("cpv").value,q1=g("q1"),q2=g("q2");
     if(q1<1||q1>99)m.push(["e","Jumlah beli (X) harus 1 sampai 99."]);
@@ -267,8 +284,23 @@ $("send").onclick=async function(){
   var s=$("sum"),b=$("send");s.classList.add("hidden");
   if(!check())return;
   if(!APPS_URL){s.textContent="Alamat Apps Script belum diisi di file HTML.";s.classList.remove("hidden");return}
+  
   var t=type(),H=$("header"),P=$("promo"),L=$("lain"),hn=H.options[H.selectedIndex].text;
-  var d={brand:$("brand").value.trim(),divisi:st.divisi,header:hn,jenis:H.value==="promo"?P.options[P.selectedIndex].text:H.value==="lain"?L.options[L.selectedIndex].text:hn,ukuran:st.size,isi:plain(t)};
+  var rawJml=parseInt($("jmlInput").value,10)||1;
+  var tipeCetak=$("tipeCetak").value;
+  var totalLembarFaktual=tipeCetak==="Bolak Balik"?rawJml*2:rawJml;
+
+  var d={
+    brand:$("brand").value.trim(),
+    divisi:st.divisi,
+    header:hn,
+    jenis:H.value==="promo"?P.options[P.selectedIndex].text:H.value==="lain"?L.options[L.selectedIndex].text:hn,
+    ukuran:st.size,
+    jmlLembar:totalLembarFaktual,
+    tipeCetak:tipeCetak,
+    isi:plain(t)
+  };
+
   b.disabled=true;b.textContent="Mengirim...";
   try{
     if(t==="ph"&&$("phf").files.length)d.foto=await readFoto($("phf").files[0]);
