@@ -290,26 +290,11 @@ $("send").onclick=async function(){
     var r=await fetch(APPS_URL,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(d)});
     var j=await r.json();
     if(!j.ok)throw new Error(j.error||"Gagal menyimpan");
-    s.innerHTML="<b>Order terkirim.</b><dl><dt>ID Order</dt><dd>"+esc(j.id)+"</dd></dl>Simpan ID ini untuk cek proses.<button class='go' type='button' onclick='location.reload()'>Buat order baru</button>";
+    s.innerHTML="<b>Order terkirim.</b><dl><dt>ID Order</dt><dd>"+esc(j.id)+"</dd></dl>Simpan ID ini untuk cek proses."+(j.gagal&&j.gagal.length?"<br><br>Perhatian: kolom "+esc(j.gagal.join(", "))+" tidak tersimpan. Beri tahu admin.":"")+"<button class='go' type='button' onclick='location.reload()'>Buat order baru</button>";
     b.classList.add("hidden");
-    } catch (e) {
-    var pesan = e && e.message ? e.message : String(e);
-
-    if (/failed to fetch|networkerror|load failed/i.test(pesan)) {
-      s.textContent =
-        "Pengiriman gagal terhubung ke Web App Google Apps Script. " +
-        "Periksa URL deployment, izin akses, dan koneksi browser. " +
-        "Jika masalah berlanjut, periksa Console browser dan " +
-        "Executions di Apps Script sebelum mengirim ulang.";
-    } else {
-      s.textContent = "Gagal mengirim: " + pesan + ". Coba lagi.";
-    }
-
-    b.disabled = false;
-    b.textContent = "Kirim order";
+  }catch(e){
+    s.textContent=e instanceof TypeError?"Tidak bisa terhubung ke server order. Cek koneksi internet, lalu coba lagi. Kalau tetap gagal, beri tahu admin.":"Gagal mengirim: "+e.message+". Coba lagi.";b.disabled=false;b.textContent="Kirim order";
   }
-  s.classList.remove("hidden");
-};
   s.classList.remove("hidden");
 };
 $("cekBtn").onclick=async function(){
