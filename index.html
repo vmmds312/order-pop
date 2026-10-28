@@ -30,6 +30,10 @@ select:focus-visible,input:focus-visible,button:focus-visible{outline:2px solid 
 .row{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end;margin-top:10px}
 .row.single{grid-template-columns:1fr auto}
 .row.sp{grid-template-columns:1fr 1fr 1fr auto}
+.row.sp>div:first-child{grid-column:1/-1}
+.row.sp input{padding:0 6px;font-size:14px;text-align:center}
+.row.sp input[data-k=n]{text-align:left;padding:0 12px;font-size:15px}
+.row.sp .del{padding:0 10px;font-size:13px}
 .row input{height:44px;padding:0 10px;border-radius:14px}
 .small{font-size:11px;color:var(--mute);font-weight:500;margin:0 0 3px}
 button{font:inherit;font-weight:600;border:0;border-radius:999px;padding:0 18px;height:44px;cursor:pointer;color:var(--ink)}
@@ -499,6 +503,7 @@ function renderRows(){
     var h='';
     if(t!=='md')h+='<div><p class="small">Produk kategori</p><input data-k="n" data-i="'+i+'" value="'+r.n.replace(/"/g,'&quot;')+'" placeholder="T-Shirt Motif"></div>';
     if(t==='sp')h+='<div><p class="small">Harga sebelum</p><input data-k="o" data-i="'+i+'" inputmode="numeric" value="'+r.o+'" placeholder="179900"></div>';
+    if(t==='sp')h+='<div><p class="small">Sampai (opsional)</p><input data-k="o2" data-i="'+i+'" inputmode="numeric" value="'+(r.o2||'')+'" placeholder="299900"></div>';
     h+='<div><p class="small">'+(t==='sp'?'Harga promo':'Harga')+'</p><input data-k="p" data-i="'+i+'" inputmode="numeric" value="'+r.p+'" placeholder="79900"></div>';
     h+='<button class="del" type="button" data-del="'+i+'" aria-label="Hapus baris">Hapus</button>';
     d.innerHTML=h;box.appendChild(d);
@@ -516,7 +521,7 @@ function check(){
     var p=num(r.p),k=p%1000;
     if(k!==0&&k!==900)m.push(['w','Harga Rp'+fmt(p)+' termasuk nominal anomali. Cek lagi (biasanya berakhir .900 atau .000).']);
     if(t!=='md'&&!r.n.trim())m.push(['e','Nama produk baris '+(i+1)+' belum diisi.']);
-    if(t==='sp'){var o=num(r.o);if(!o)m.push(['e','POP Special Price wajib ada harga sebelum (baris '+(i+1)+').']);else if(o<=p)m.push(['e','Harga sebelum harus lebih besar dari harga promo (baris '+(i+1)+').']);}
+    if(t==='sp'){var o=num(r.o);if(!o)m.push(['e','POP Special Price wajib ada harga sebelum (baris '+(i+1)+').']);else if(o<=p)m.push(['e','Harga sebelum harus lebih besar dari harga promo (baris '+(i+1)+').']);var o2=num(r.o2);if(o>0&&o2>0&&o2<=o)m.push(['e','Kolom Sampai harus lebih besar dari Harga sebelum (baris '+(i+1)+').']);}
     if(t==='na'&&p>num($('kat').value))over=true;
   });
   if(over)m.push(['e','Ada harga di atas batas kategori. Sesuai aturan, pakai POP New Arrival tanpa harga.']);
@@ -612,6 +617,7 @@ var GUIDE_P={
     a5:{pg:PGA5,box:BXA5,cols:1,rows:1,cx:[297.85],B1:336.1,pitch:0,z:{cat:45,rp:50,big:153,dec:60},o:{cat:-143,rp:-78.2,dec:-68.2},dx:{cat:0}}
   }
 };
+var RANGE_RISE=.7;
 function drawPromo(x,W,H,u,t,rows,n){
   var key;
   if(t==='md')key=u==='a4'?'a4':'a5';
@@ -626,8 +632,8 @@ function drawPromo(x,W,H,u,t,rows,n){
   var c0=((G.B1+G.o.cat-.7*G.z.cat)+(G.B1+(G.rows-1)*G.pitch))/2*py;
   function adv(str,font,z){x.font=font;var w=0;for(var j=0;j<str.length;j++)w+=x.measureText(str.charAt(j)).width+TR*z;return w}
   function run(str,font,z,xx,yy){x.font=font;for(var j=0;j<str.length;j++){var ch=str.charAt(j);x.fillText(ch,xx,yy);xx+=x.measureText(ch).width+TR*z}return xx}
-  function build(fp,fc){
-    var Z=G.z,z={cat:Z.cat*px*fc,rp:Z.rp*px*fp,big:Z.big*px*fp,dec:Z.dec*px*fp,orp:(Z.orp||0)*px*fp,old:(Z.old||0)*px*fp,sf:px*fp};
+  function build(fp,fc,fo){fo=fo||1;
+    var Z=G.z,z={cat:Z.cat*px*fc,rp:Z.rp*px*fp,big:Z.big*px*fp,dec:Z.dec*px*fp,orp:(Z.orp||0)*px*fp*fo,old:(Z.old||0)*px*fp*fo,sf:px*fp,so:px*fp*fo,fo:fo};
     var bl=rows.map(function(r){
       var p=num(r.p),big=String(Math.floor(p/1000)),dec='.'+String(p%1000).padStart(3,'0');
       var cat=t==='md'?'Mulai dari':title(r.n);
@@ -637,9 +643,9 @@ function drawPromo(x,W,H,u,t,rows,n){
       if(wc+cdx>availC){while(cat.length>1&&x.measureText(cat+'\u2026').width+cdx>availC)cat=cat.slice(0,-1).replace(/\s+$/,'');cat+='\u2026';wc=x.measureText(cat).width}
       var o=null,rOld=0;
       if(isSP&&num(r.o)>0){
-        var os=fmt(num(r.o)),orpF='500 '+z.orp+'px Poppins',oldF='700 '+z.old+'px Poppins',odx=G.dx.orp*px*fp;
-        var wor=adv('Rp',orpF,z.orp),wo=adv(os,oldF,z.old);
-        o={s:os,orpF:orpF,oldF:oldF,odx:odx,wor:wor,wo:wo};rOld=odx+wor+wo-TR*z.old+G.st.over*px*fp;
+        var isR=num(r.o2)>num(r.o),os=fmt(num(r.o))+(isR?' \u2013 '+fmt(num(r.o2)):''),orpF='500 '+z.orp+'px Poppins',oldF='600 '+z.old+'px Poppins',odx=G.dx.orp*px*fp*fo;
+        var wor=adv('Rp',orpF,z.orp)+z.old*.07,wo=adv(os,oldF,z.old);
+        o={s:os,orpF:orpF,oldF:oldF,odx:odx,wor:wor,wo:wo,rf:isR?RANGE_RISE:1};rOld=odx+wor+wo-TR*z.old+G.st.over*px*fp*fo;
       }
       return{cat:cat,big:big,dec:dec,catF:catF,bigF:bigF,rpF:rpF,decF:decF,wr:wr,wb:wb,wp:wp,wc:wc,wcRaw:wcRaw,cdx:cdx,o:o,rOld:rOld,w:Math.max(wp,rOld,wc+cdx)};
     });
@@ -650,14 +656,15 @@ function drawPromo(x,W,H,u,t,rows,n){
     return{z:z,bl:bl,gws:gws,gw:Math.max.apply(null,gws),Y:Y,top:Y(G.B1+G.o.cat)-cap,bot:Y(G.B1+(G.rows-1)*G.pitch)+dsc,
       maxWc:Math.max.apply(null,bl.map(function(b){return b.wcRaw+b.cdx})),maxWp:Math.max.apply(null,bl.map(function(b){return b.wp})),maxOld:Math.max.apply(null,bl.map(function(b){return b.rOld}))};
   }
-  var fp=1,fc=1,B=build(1,1);
-  var cw=Math.min(1,availC/B.maxWc);fp=Math.min(1,availW/B.maxWp,availC/Math.max(1,B.maxOld));fc=Math.max(.5,cw);B=build(fp,fc);
+  var fp=1,fc=1,fo=1,B=build(1,1,1);
+  var cw=Math.min(1,availC/B.maxWc);fp=Math.min(1,availW/B.maxWp);fc=Math.max(.5,cw);B=build(fp,fc,1);fo=Math.min(1,availC/Math.max(1,B.maxOld));B=build(fp,fc,fo);
   for(i=0;i<8&&(B.maxWp>availW+.5||B.maxOld>availC+.5||B.top<T-tol||B.bot>Bt+tol);i++){
-    var f2=Math.min(1,(availW-.5)/B.maxWp,(availC-.5)/Math.max(1,B.maxOld),(c0-T+tol)/(c0-B.top),(Bt+tol-c0)/(B.bot-c0));fp*=f2;fc*=f2;B=build(fp,fc);
+    var f2=Math.min(1,(availW-.5)/B.maxWp,(c0-T+tol)/(c0-B.top),(Bt+tol-c0)/(B.bot-c0));fp*=f2;fc*=f2;fo*=Math.min(1,(availC-.5)/Math.max(1,B.maxOld));B=build(fp,fc,fo);
   }
   var info=[];
   if(fp<.995)info.push('Harga melewati batas guide, font harga otomatis dikecilkan ke '+Math.round(fp*100)+'% supaya tetap di dalam batas.');
   if(cw<.995)info.push('Nama produk terlalu panjang untuk batas guide, font kategori dikecilkan ke '+Math.round(Math.max(.5,cw)*100)+'%'+(cw<.5?' dan teks dipotong. Sebaiknya dipersingkat.':'.'));
+  if(fo<.995)info.push('Rentang harga sebelum terlalu panjang untuk batas guide, font harga coret dikecilkan ke '+Math.round(fo*100)+'%.');
   if(info.length)$('msgs').insertAdjacentHTML('beforeend',info.map(function(m){return '<li class="w">'+m+'</li>'}).join(''));
   var z=B.z;
   x.textBaseline='alphabetic';x.textAlign='left';
@@ -670,7 +677,7 @@ function drawPromo(x,W,H,u,t,rows,n){
         var xr=left+b.o.odx,oy=B.Y(Bd+G.o.old);x.fillStyle='#000';
         run('Rp',b.o.orpF,z.orp,xr,B.Y(Bd+G.o.orp));
         run(b.o.s,b.o.oldF,z.old,xr+b.o.wor,oy);
-        x.strokeStyle='#000';x.lineWidth=G.st.lw*z.sf;x.lineCap='butt';x.beginPath();x.moveTo(xr,oy);x.lineTo(xr+b.o.wor+b.o.wo-TR*z.old+G.st.over*z.sf,B.Y(Bd+G.o.old-G.st.rise));x.stroke();
+        x.strokeStyle='#000';x.lineWidth=G.st.lw*z.so;x.lineCap='butt';x.beginPath();x.moveTo(xr,oy);x.lineTo(xr+b.o.wor+b.o.wo-TR*z.old+G.st.over*z.so,B.Y(Bd+G.o.old-G.st.rise*z.fo*b.o.rf));x.stroke();
       }
       x.fillStyle=RED;
       run('Rp',b.rpF,z.rp,left,B.Y(Bd+G.o.rp));
