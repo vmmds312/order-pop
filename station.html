@@ -98,8 +98,8 @@ function setSt(cls,t,t2){$('dot').className='dot '+cls;$('st').textContent=t;$('
 function hhmm(){var d=new Date();return ('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2)}
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
 function addLog(job,st){
-  logs.unshift({t:hhmm(),l:job.label+((job.copies||1)>1?' ×'+job.copies:''),u:job.user,s:st});logs=logs.slice(0,8);if(st!=='gagal')count++;
-  $('empty').hidden=true;$('cnt').textContent='('+count+' terkirim)';
+  logs.unshift({t:hhmm(),l:job.label+((job.copies||1)>1?' ×'+job.copies:''),u:job.user,s:st});logs=logs.slice(0,8);if(st==='selesai')count++;
+  $('empty').hidden=true;$('cnt').textContent='('+count+' selesai)';
   $('log').innerHTML=logs.map(function(x){return '<li class="'+(x.s==='gagal'?'gagal':'')+'"><span>'+x.t+' · '+esc(x.l)+' · '+esc(x.u)+'</span><span>'+x.s+'</span></li>'}).join('');
 }
 function printJob(job){
@@ -107,7 +107,7 @@ function printJob(job){
     var w=job.w,h=job.h,n=Math.max(1,Math.min(50,job.copies||1)),f=document.createElement('iframe');
     f.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0';document.body.appendChild(f);
     var d=f.contentWindow.document;d.open();
-    d.write('<!doctype html><html><head><meta charset="utf-8"><title>POP '+job.id+'</title><style>@page{size:'+w+'mm '+h+'mm;margin:0}html,body{margin:0;padding:0;background:#fff}img{display:block;width:'+w+'mm;height:'+h+'mm;break-after:page;page-break-after:always}img:last-child{break-after:auto;page-break-after:auto}</style></head><body></body></html>');d.close();
+    d.write('<!doctype html><html><head><meta charset="utf-8"><title>POP</title><style>@page{size:'+w+'mm '+h+'mm;margin:0}html,body{margin:0;padding:0;background:#fff}img{display:block;width:'+w+'mm;height:'+h+'mm;break-after:page;page-break-after:always}img:last-child{break-after:auto;page-break-after:auto}</style></head><body></body></html>');d.close();
     var loaded=0,failed=false;
     function ready(){
       if(failed)return;
@@ -141,8 +141,8 @@ function tick(){
     }
     if(!r.job){busy=false;idle();next();return}
     var job=r.job,kertas=(job.w===297&&job.h===420)?'A3':(job.w===210&&job.h===297)?'A4':job.w+' x '+job.h+' mm';setSt('busy','Mencetak: '+job.label,'Dari '+job.user+' · kertas '+kertas+' · '+(job.copies||1)+' lembar');
-    return post({action:'progress',key:key(),id:job.id,status:'mencetak',detail:'Mengirim ke printer, kertas '+kertas+', '+(job.copies||1)+' lembar'}).catch(function(){}).then(function(){return printJob(job)}).then(function(){return post({action:'progress',key:key(),id:job.id,status:'terkirim',detail:'Terkirim ke printer'})}).then(function(){addLog(job,'terkirim')})
-      .catch(function(){return post({action:'done',key:key(),id:job.id,status:'gagal',detail:'Gagal mengirim ke printer'}).catch(function(){}).then(function(){addLog(job,'gagal')})})
+    return printJob(job).then(function(){return post({action:'done',key:key(),id:job.id,status:'selesai'})}).then(function(){addLog(job,'selesai')})
+      .catch(function(){return post({action:'done',key:key(),id:job.id,status:'gagal'}).catch(function(){}).then(function(){addLog(job,'gagal')})})
       .then(function(){busy=false;idle();next(1500)});
   }).catch(function(){busy=false;setSt('err','Tidak bisa terhubung','Mencoba lagi…');next()});
 }
