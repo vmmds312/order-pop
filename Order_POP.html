@@ -33,6 +33,8 @@ input,select{width:100%;height:52px;font:inherit;color:var(--tx);background:var(
 input::placeholder{color:var(--ph)}
 input[type=file]{padding:12px 14px;height:auto}
 input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid var(--r1);outline-offset:2px}
+.brandBox{position:relative}.brandHints{position:absolute;left:0;right:0;top:58px;z-index:20;max-height:220px;overflow:auto;background:var(--sheet);border:1px solid var(--bd);border-radius:14px;box-shadow:0 10px 26px var(--sh)}.brandHints button{display:block;width:100%;text-align:left;padding:12px 16px;border:0;border-bottom:1px solid var(--bd);background:transparent;color:var(--tx);font:inherit;cursor:pointer}.brandHints button:last-child{border-bottom:0}.brandHints button:active,.brandHints button:hover{background:var(--e)}
+.modalShade{position:fixed;inset:0;z-index:50;background:rgba(20,0,4,.58);display:flex;align-items:center;justify-content:center;padding:18px}.modalCard{width:min(100%,430px);max-height:90vh;overflow:auto;background:var(--sheet);color:var(--tx);border:1px solid var(--bd);border-radius:22px;padding:22px;box-shadow:0 18px 55px rgba(0,0,0,.3)}.modalCard h2{font-size:18px;color:var(--tx)}.modalCard p{color:var(--mu);font-size:14px}.modalCard textarea{width:100%;min-height:105px;padding:12px 14px;border:1px solid var(--bd);border-radius:14px;background:var(--card);color:var(--tx);font:inherit;resize:vertical}.modalActions{display:flex;gap:10px;margin-top:14px}.modalActions button{flex:1}.modalCancel{font:inherit;border:1px solid var(--bd);border-radius:999px;padding:12px;background:var(--card);color:var(--tx)}
 .chips{display:flex;flex-wrap:wrap;gap:8px}
 .chip{font:inherit;color:var(--tx);background:var(--card);border:1px solid var(--bd);border-radius:999px;padding:10px 20px;cursor:pointer;box-shadow:0 4px 12px var(--sh)}
 .chip[aria-pressed="true"]{background:linear-gradient(90deg,var(--r1),var(--r2));color:#fff;border-color:transparent}
@@ -98,10 +100,10 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid 
   <h1>Order POP</h1>
   <p class="sub">Isi data di bawah, lalu kirim.</p>
 
-  <section class="f"><h2>Brand</h2><input id="brand" placeholder="Nama brand" autocomplete="off"></section>
-
   <section class="f"><h2>Divisi</h2>
     <div class="chips" id="divisi"></div></section>
+
+  <section class="f"><h2>Brand</h2><div class="brandBox"><input id="brand" placeholder="Pilih divisi terlebih dahulu" autocomplete="off" aria-autocomplete="list" aria-expanded="false" disabled><div id="brandHints" class="brandHints hidden" role="listbox"></div></div><small id="brandInfo" style="display:block;color:var(--mu);margin:7px 4px">Pilih divisi untuk menampilkan brand.</small></section>
 
   <section class="f"><h2>Header</h2>
     <div class="two"><select id="header" aria-label="Header"><option value="">Pilih header</option><option value="na">New Arrival</option><option value="ht">Harga Terbaik</option><option value="promo">Promo</option><option value="reg">Reguler</option><option value="lain">Lainnya</option></select>
@@ -148,16 +150,70 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid 
   <div class="sum hidden" id="sum" role="status"></div>
 </div>
 </main>
+<div id="dupModal" class="modalShade hidden" role="dialog" aria-modal="true" aria-labelledby="dupTitle">
+  <div class="modalCard">
+    <h2 id="dupTitle">POP serupa pernah dipesan</h2>
+    <p id="dupInfo">Kami menemukan pesanan dengan Brand, Jenis, Ukuran, dan Isi yang sama.</p>
+    <div id="dupMatches" class="note"></div>
+    <label for="dupReason" style="display:block;margin:16px 0 6px;font-size:14px;font-weight:600">Alasan order ulang (wajib)</label>
+    <textarea id="dupReason" maxlength="500" placeholder="Jelaskan alasan pemesanan ulang..."></textarea>
+    <div class="modalActions"><button type="button" class="modalCancel" id="dupCancel">Batal</button><button type="button" class="go" id="dupConfirm" style="margin:0;height:auto;padding:12px">Kirim dengan alasan</button></div>
+  </div>
+</div>
 
 <script>
 var KATEGORI=["Sepatu","Sandal","Chinos","Celana Denim","T-Shirt","Kemeja","Blouse","Dress","Bra","Panty"];
-var nm=function(r){return r.n==="__lain"?(r.nl||"").trim():r.n};
+var kap=function(x){return String(x).replace(/\s+/g," ").replace(/(^|[\s-])([a-z])/g,function(a,b,c){return b+c.toUpperCase()})};
+var nm=function(r){return kap(r.n==="__lain"?(r.nl||"").trim():r.n)};
 var phName=function(){return $("phc").value==="__lain"?$("phcl").value.trim():$("phc").value};
 var SIZES=[{k:"A5",w:85,h:60,o:"Landscape"},{k:"A4",w:60,h:85,o:"Portrait"},{k:"A3",w:85,h:120,o:"Portrait"},{k:"A4 Long",w:96,h:30,o:"63 x 29,7 cm",only:"ph"},{k:"Bulat",w:64,h:64,o:"Beli 1 diskon + Beli X gratis X",only:"cb",round:1}];
 var CPF=[["q1","Beli berapa (X)",2,/v[1-6]/],["q2","Beli kedua (Y)",3,/v[345]/],["a","Diskon (%)",20,/v[123]/],["b","Diskon beli kedua (%)",30,/v3/],["o","Harga normal (dicoret)",179900,/v[456]/],["p1","Harga beli pertama / satuan",99900,/v[456]/],["p2","Harga beli kedua",79900,/v[45]/]];
 var st={divisi:null,size:null,rows:[{n:"",o:"",p:""}]};
 var $=function(i){return document.getElementById(i)};
 function show(id){["home","cek","order"].forEach(function(x){$(x).classList.toggle("hidden",x!==id)});window.scrollTo(0,0)}
+var brandRows=[],jenisRows=[],brandSelected=false,configLoading=false,configLoaded=false;
+function loadConfig(){
+  if(configLoaded||configLoading||!APPS_URL)return;
+  configLoading=true;$('brandInfo').textContent='Memuat konfigurasi brand...';
+  fetch(APPS_URL+'?config=1').then(function(r){return r.json()}).then(function(j){
+    if(!j.ok||!j.config)throw new Error(j.error||'Gagal memuat konfigurasi');
+    brandRows=Array.isArray(j.config.brands)?j.config.brands:[];
+    jenisRows=Array.isArray(j.config.jenis)?j.config.jenis:[];configLoaded=true;
+    $('brandInfo').textContent=st.divisi?'Ketik untuk mencari brand di Divisi '+st.divisi+'.':'Pilih divisi terlebih dahulu.';
+    if(st.divisi)renderBrandHints();
+  }).catch(function(e){$('brandInfo').textContent=e.message||'Konfigurasi gagal dimuat. Hubungi admin.';}).finally(function(){configLoading=false});
+}
+function norm(v){return String(v||'').toLowerCase().replace(/\s+/g,' ').trim()}
+function brandForDivision(){var seen={};return brandRows.filter(function(x){if(norm(x.Divisi)!==norm(st.divisi))return false;var k=norm(x.Brand);if(!k||seen[k])return false;seen[k]=true;return true;}).map(function(x){return x.Brand;})}
+function renderBrandHints(){
+  var q=$('brand').value.trim().toLowerCase(),box=$('brandHints');
+  if(!st.divisi||!configLoaded||!q){box.classList.add('hidden');$('brand').setAttribute('aria-expanded','false');return}
+  var found=brandForDivision().filter(function(x){return x.toLowerCase().indexOf(q)>-1}).slice(0,30);
+  box.innerHTML=found.map(function(x){return '<button type="button" role="option" data-brand="'+esc(x)+'">'+esc(x)+'</button>'}).join('');
+  box.classList.toggle('hidden',!found.length);$('brand').setAttribute('aria-expanded',found.length?'true':'false');
+  [].forEach.call(box.querySelectorAll('button'),function(b){b.onclick=function(){
+    $('brand').value=b.dataset.brand;brandSelected=true;box.classList.add('hidden');$('brand').setAttribute('aria-expanded','false');
+    $('brandInfo').textContent='Brand dipilih: '+b.dataset.brand;configureHeaders();
+  }});
+}
+function codeHeader(label){var m={'new arrival':'na','harga terbaik':'ht','promo':'promo','reguler':'reg','lainnya':'lain'};return m[norm(label)]||''}
+function codeJenis(label){var m={'special price (harga coret)':'sp','special price':'sp','mulai dari':'md','campaign':'cp','sale (khusus event sale)':'sl','sale':'sl','product highlight':'ph','daftar 5 harga':'l5'};return m[norm(label)]||''}
+function configureHeaders(){
+  var brand=$('brand').value,seen={},headers=brandRows.filter(function(x){return norm(x.Brand)===norm(brand)}).map(function(x){return x.Header}).filter(function(x){var k=norm(x);if(!k||seen[k])return false;seen[k]=true;return true;});
+  var h=$('header');h.innerHTML='<option value="">Pilih header</option>';
+  headers.forEach(function(label){var code=codeHeader(label);if(code)h.add(new Option(label,code));});
+  h.value='';$('promo').innerHTML='';$('lain').innerHTML='';$('promo').classList.add('hidden');$('lain').classList.add('hidden');
+  $('header').dispatchEvent(new Event('change'));
+}
+function configureJenis(){
+  var h=$('header'),label=h.options[h.selectedIndex]?h.options[h.selectedIndex].text:'';
+  var items=jenisRows.filter(function(x){return norm(x.Header)===norm(label)}).map(function(x){return x['Jenis POP'];});
+  var target=h.value==='promo'?'promo':h.value==='lain'?'lain':null;
+  if(target){var el=$(target);el.innerHTML='';items.forEach(function(x){var code=codeJenis(x);if(code)el.add(new Option(x,code));});el.value=el.options.length?el.options[0].value:'';}
+}
+$('brand').addEventListener('input',function(){brandSelected=false;$('brandInfo').textContent='Pilih salah satu brand yang muncul.';renderBrandHints()});
+$('brand').addEventListener('focus',loadConfig);
+document.addEventListener('click',function(e){if(!e.target.closest('.brandBox'))$('brandHints').classList.add('hidden')});
 $("goOrder").onclick=function(){show("order")};$("goCek").onclick=function(){show("cek")};
 document.querySelectorAll("[data-back]").forEach(function(b){b.onclick=function(){show("home")}});
 var num=function(s){return parseInt(String(s).replace(/\D/g,""),10)||0};
@@ -166,7 +222,7 @@ var esc=function(t){return String(t).replace(/[&<>"]/g,function(c){return{"&":"&
 function type(){var h=$("header").value;return h==="promo"?$("promo").value:h==="lain"?$("lain").value:h}
 function maxN(){var t=type(),big=st.size!=="A5";if(t==="md")return 1;if(t==="l5")return 5;if(t==="sp")return big?6:2;return big?3:2}
 
-[1,2,3,4].forEach(function(v){var b=document.createElement("button");b.className="chip";b.type="button";b.textContent=v;b.setAttribute("aria-pressed","false");b.onclick=function(){st.divisi=v;[].forEach.call($("divisi").children,function(c){c.setAttribute("aria-pressed",c===b)})};$("divisi").appendChild(b)});
+[1,2,3,4].forEach(function(v){var b=document.createElement("button");b.className="chip";b.type="button";b.textContent=v;b.setAttribute("aria-pressed","false");b.onclick=function(){st.divisi=v;[].forEach.call($("divisi").children,function(c){c.setAttribute("aria-pressed",c===b)});$('brand').disabled=false;$('brand').placeholder='Ketik untuk mencari brand';$('brand').value='';brandSelected=false;$('header').innerHTML='<option value="">Pilih header</option>';$('promo').innerHTML='';$('lain').innerHTML='';$('brandInfo').textContent='Memuat brand untuk Divisi '+v+'...';loadConfig();renderBrandHints()};$("divisi").appendChild(b)});
 function buildSizes(){var t=type(),L=SIZES.filter(function(z){return!z.only||(z.only==="ph"&&t==="ph")||(z.only==="cb"&&t==="sl"&&$("slv").value==="cb")});
   if(t==="l5"){L=L.filter(function(z){return z.k==="A5"});st.size="A5"}
   if(st.size&&!L.some(function(z){return z.k===st.size}))st.size=null;
@@ -181,7 +237,7 @@ $("php").oninput=function(){var q=this.value.replace(/\D/g,"");this.value=q?fmt(
 ["lca","lcb","lcp"].forEach(function(i){$(i).oninput=function(){var q=this.value.replace(/\D/g,"");this.value=q?fmt(q):""}});
 
 $("cpf").innerHTML=CPF.map(function(f){return'<div id="w'+f[0]+'"><label for="c'+f[0]+'">'+f[1]+'</label><input id="c'+f[0]+'" inputmode="numeric" value="'+f[2]+'"></div>'}).join("");
-$("header").onchange=$("promo").onchange=$("lain").onchange=$("cpv").onchange=$("slv").onchange=render;
+$("header").onchange=function(){configureJenis();render()};$("promo").onchange=$("lain").onchange=$("cpv").onchange=$("slv").onchange=render;
 
 function render(){
   var t=type(),h=$("header").value,box=$("rows");
@@ -226,9 +282,10 @@ $("addRow").onclick=function(){if(st.rows.length<maxN()){st.rows.push({n:"",o:""
 
 function check(){
   var t=type(),m=[],g=function(i){return num($("c"+i).value)};
-  if(!$("brand").value.trim())m.push(["e","Brand belum diisi."]);
+  if(!$("brand").value.trim())m.push(["e","Brand belum diisi."]);else if(!brandSelected)m.push(["e","Pilih brand dari daftar yang tersedia."]);
   if(!st.divisi)m.push(["e","Divisi belum dipilih."]);
   if(!$("header").value)m.push(["e","Header belum dipilih."]);
+  if(($("header").value==="promo"||$("header").value==="lain")&&!type())m.push(["e","Jenis POP belum tersedia untuk Header ini. Periksa sheet JENIS_POP."]);
   if(!st.size)m.push(["e","Ukuran kertas belum dipilih."]);
   if(t==="cp"){
     var v=$("cpv").value,q1=g("q1"),q2=g("q2");
@@ -264,6 +321,12 @@ function check(){
       if(t==="sp"){var o=num(r.o);if(!o)m.push(["e","Special Price wajib ada harga sebelum (baris "+x+")."]);else if(p&&o<=p)m.push(["e","Harga sebelum harus lebih besar dari harga promo (baris "+x+")."]);var o2=num(r.o2);if(o2&&o&&o2<=o)m.push(["e","Harga sebelum (sampai) harus lebih besar dari harga sebelum (baris "+x+")."])}
       if(t==="na"&&p>num($("kat").value))m.push(["w","Harga baris "+x+" di atas batas kategori. Sesuai aturan, pakai POP New Arrival tanpa harga."]);
     });
+    var pr=st.rows.map(function(r){return num(r.p)}).filter(Boolean);
+    if((t==="na"||t==="ht"||t==="l5")&&pr.some(function(v,i){return i&&v<pr[i-1]}))m.push(["e","Urutkan harga dari yang terendah (paling atas) ke tertinggi."]);
+    if((t==="na"||t==="ht")&&st.size&&st.size!=="A5"&&pr.length===1)m.push(["w","Panduan New Arrival dan Harga Terbaik di A4 atau A3: minimal 2 harga."]);
+    if(t==="na")m.push(["w","POP New Arrival hanya untuk produk berusia maks 4 minggu sejak diterima toko."]);
+    if(t==="l5")m.push(["w","POP 5 harga khusus table apparel, dipakai bersama POP New Arrival biru A4 Long."]);
+    if(t==="reg")m.push(["w","Harga normal (bukan New Arrival atau Promo) sebaiknya tidak memakai POP harga."]);
   }
   $("msgs").innerHTML=m.map(function(x){return'<li class="'+x[0]+'">'+x[1]+"</li>"}).join("");
   return !m.some(function(x){return x[0]==="e"});
@@ -278,24 +341,45 @@ function plain(t){
   return st.rows.map(function(r){return(t==="md"?"Mulai dari":nm(r))+" "+(t==="sp"?rp(r.o)+(r.o2?" - "+rp(r.o2):"")+" jadi ":"")+rp(r.p)}).join("; ")
 }
 function readFoto(f){return new Promise(function(ok,no){var fr=new FileReader();fr.onerror=no;fr.onload=function(){var im=new Image();im.onerror=no;im.onload=function(){var k=Math.min(1,1280/Math.max(im.width,im.height)),c=document.createElement("canvas");c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext("2d").drawImage(im,0,0,c.width,c.height);ok(c.toDataURL("image/jpeg",.85).split(",")[1])};im.src=fr.result};fr.readAsDataURL(f)})}
-$("send").onclick=async function(){
-  var s=$("sum"),b=$("send");s.classList.add("hidden");
+var pendingOrder=null,sendButton=null,sendSummary=null;
+async function postOrder(d){
+  var r=await fetch(APPS_URL,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(d)});
+  return await r.json();
+}
+function showDuplicate(j){
+  $('dupMatches').innerHTML=(j.matches||[]).map(function(x){return '<div><b>'+esc(x.id||'Order lama')+'</b> · '+esc(x.waktu||'')+' · '+esc(x.status||'')+'</div>'}).join('')||'Pesanan serupa ditemukan di riwayat.';
+  $('dupReason').value='';$('dupModal').classList.remove('hidden');$('dupReason').focus();
+}
+$('dupCancel').onclick=function(){$('dupModal').classList.add('hidden');if(sendButton){sendButton.disabled=false;sendButton.textContent='Kirim order'}};
+$('dupConfirm').onclick=async function(){
+  var reason=$('dupReason').value.trim();
+  if(reason.length<5){alert('Alasan order ulang minimal 5 karakter.');return}
+  $('dupConfirm').disabled=true;$('dupConfirm').textContent='Mengirim...';
+  try{pendingOrder.reason=reason;var j=await postOrder(pendingOrder);if(!j.ok)throw new Error(j.error||'Gagal menyimpan');
+    $('dupModal').classList.add('hidden');finishOrder(j);
+  }catch(e){alert('Gagal mengirim: '+e.message);}
+  finally{$('dupConfirm').disabled=false;$('dupConfirm').textContent='Kirim dengan alasan';if(sendButton){sendButton.disabled=false;sendButton.textContent='Kirim order'}}
+};
+function finishOrder(j){
+  sendSummary.innerHTML="<b>Order terkirim.</b><dl><dt>ID Order</dt><dd>"+esc(j.id)+"</dd></dl>Simpan ID ini untuk cek proses."+(j.gagal&&j.gagal.length?"<br><br>Perhatian: kolom "+esc(j.gagal.join(", "))+" tidak tersimpan. Beri tahu admin.":"")+"<button class='go' type='button' onclick='location.reload()'>Buat order baru</button>";
+  sendButton.classList.add('hidden');sendSummary.classList.remove('hidden');
+}
+$('send').onclick=async function(){
+  var s=$('sum'),b=$('send');s.classList.add('hidden');
   if(!check())return;
   if(!APPS_URL){s.textContent="Alamat Apps Script belum diisi di file HTML.";s.classList.remove("hidden");return}
-  var t=type(),H=$("header"),P=$("promo"),L=$("lain"),hn=H.options[H.selectedIndex].text;
-  var d={brand:$("brand").value.trim(),divisi:st.divisi,header:hn,jenis:H.value==="promo"?P.options[P.selectedIndex].text:H.value==="lain"?L.options[L.selectedIndex].text:hn,ukuran:st.size,lembar:$("lembar").value,bolak:$("bolak").value,isi:plain(t)};
-  b.disabled=true;b.textContent="Mengirim...";
+  var t=type(),H=$('header'),P=$('promo'),L=$('lain'),hn=H.options[H.selectedIndex].text;
+  var d={brand:$('brand').value.trim(),divisi:st.divisi,header:hn,jenis:H.value==="promo"?P.options[P.selectedIndex].text:H.value==="lain"?L.options[L.selectedIndex].text:hn,ukuran:st.size,lembar:$('lembar').value,bolak:$('bolak').value,isi:plain(t)};
+  var confirmText='Periksa pesanan sebelum dikirim:\n\nDivisi: '+d.divisi+'\nBrand: '+d.brand+'\nJenis: '+d.jenis+'\nUkuran: '+d.ukuran+'\nIsi: '+d.isi+'\n\nLanjutkan mengirim?';
+  if(!window.confirm(confirmText))return;
+  sendButton=b;sendSummary=s;pendingOrder=d;b.disabled=true;b.textContent='Mengirim...';
   try{
-    if(t==="ph"&&$("phf").files.length)d.foto=await readFoto($("phf").files[0]);
-    var r=await fetch(APPS_URL,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(d)});
-    var j=await r.json();
+    if(t==="ph"&&$('phf').files.length)d.foto=await readFoto($('phf').files[0]);
+    var j=await postOrder(d);
+    if(j.duplicate){b.disabled=false;b.textContent='Kirim order';showDuplicate(j);return}
     if(!j.ok)throw new Error(j.error||"Gagal menyimpan");
-    s.innerHTML="<b>Order terkirim.</b><dl><dt>ID Order</dt><dd>"+esc(j.id)+"</dd></dl>Simpan ID ini untuk cek proses."+(j.gagal&&j.gagal.length?"<br><br>Perhatian: kolom "+esc(j.gagal.join(", "))+" tidak tersimpan. Beri tahu admin.":"")+"<button class='go' type='button' onclick='location.reload()'>Buat order baru</button>";
-    b.classList.add("hidden");
-  }catch(e){
-    s.textContent=e instanceof TypeError?"Tidak bisa terhubung ke server order. Cek koneksi internet, lalu coba lagi. Kalau tetap gagal, beri tahu admin.":"Gagal mengirim: "+e.message+". Coba lagi.";b.disabled=false;b.textContent="Kirim order";
-  }
-  s.classList.remove("hidden");
+    finishOrder(j);
+  }catch(e){s.textContent=e instanceof TypeError?"Tidak bisa terhubung ke server order. Cek koneksi internet, lalu coba lagi. Kalau tetap gagal, beri tahu admin.":"Gagal mengirim: "+e.message+". Coba lagi.";s.classList.remove('hidden');b.disabled=false;b.textContent='Kirim order'}
 };
 $("cekBtn").onclick=async function(){
   var r=$("cekRes"),q=$("cekId").value.trim();
